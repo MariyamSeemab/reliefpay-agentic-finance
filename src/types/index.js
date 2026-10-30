@@ -1,0 +1,28 @@
+/**
+ * Core Data Models & Type Definitions
+ */
+
+export const UserRoles = {
+  ADMIN: 'ADMIN',
+  REVIEWER: 'REVIEWER',
+  BENEFICIARY: 'BENEFICIARY',
+  DONOR: 'DONOR',
+  VOLUNTEER: 'VOLUNTEER',
+  AUDITOR: 'AUDITOR'
+};
+
+export const ApplicationStatus = {
+  SUBMITTED: 'SUBMITTED',
+  UNDER_REVIEW: 'UNDER_REVIEW',
+  CHANGES_REQUESTED: 'CHANGES_REQUESTED',
+  APPROVED: 'APPROVED',
+  DECLINED: 'DECLINED'
+};
+
+export const PaymentStatus = {
+  CREATED: 'CREATED',
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED'
+};
