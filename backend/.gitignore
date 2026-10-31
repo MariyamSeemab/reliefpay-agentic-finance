@@ -1,0 +1,4 @@
+# Local SQLite database and its WAL sidecar files
+data/
+*.db-wal
+*.db-shm
