@@ -1,0 +1,36 @@
+# Render Blueprint: one web service. The build compiles the React SPA into dist/
+# and installs the API; the Express API serves both /api and the SPA.
+services:
+  - type: web
+    name: reliefpay
+    runtime: node
+    plan: free
+    # --include=dev is required: NODE_ENV=production would otherwise skip Vite.
+    buildCommand: "npm ci --include=dev && npm run build && npm ci --prefix backend --omit=dev"
+    startCommand: "npm start --prefix backend"
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CURRENCY
+        value: USD
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: PAYOUT_AUTH_CODE
+        sync: false
+      - key: PAYOUT_RECEIVER_EMAIL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
