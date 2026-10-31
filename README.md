@@ -11,7 +11,7 @@ ReliefPay is a disaster-relief platform where donors fund campaigns through PayP
 - **AI agent on Groq.** In the AI Command Centre an admin chats with an agent that calls local tools to read campaigns, applications, donations and payout batches, and can draft a payout batch. It has no tool that releases money.
 - **Role-based access for 6 roles:** Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor.
 
-Wired to the API: login/signup, campaigns and donations, AI Command Centre, Payment Agent, application management, and the auditor's audit log. Still showing mock data: the dashboards (except the auditor audit log), AI verification, beneficiary registration and emergency application, and the map.
+Wired to the API: login/signup, campaigns and donations, the admin dashboard totals and charts, AI Command Centre, Payment Agent, application management, and the auditor dashboard and audit log. The donor dashboard mixes API data with sample data. Still showing mock data: the beneficiary and volunteer dashboards, AI verification, beneficiary registration and emergency application, and the map.
 
 ## Screenshots
 
