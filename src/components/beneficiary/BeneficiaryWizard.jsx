@@ -128,7 +128,7 @@ export const BeneficiaryWizard = ({ campaigns, onAddApplication, setActiveTab })
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Requested Assistance Amount (₹)</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Requested Assistance Amount (USD)</label>
                 <input 
                   type="number"
                   required

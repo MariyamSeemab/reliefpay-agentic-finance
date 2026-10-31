@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Shield, TrendingUp, AlertTriangle, CheckCircle2, Download, Filter } from 'lucide-react';
-import { INITIAL_TRANSACTIONS } from '../../data/mockData';
 import { apiFetch } from '../../lib/api';
+import { formatMoney } from '../../lib/money';
 
 const MAX_FILTERS = 8;
 
@@ -9,11 +9,20 @@ export const AuditorDashboard = ({ currentUser }) => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [logsError, setLogsError] = useState('');
-  const [transactions] = useState(INITIAL_TRANSACTIONS);
+  const [transactions, setTransactions] = useState([]);
+  const [currency, setCurrency] = useState('USD');
   const [filterType, setFilterType] = useState('ALL');
 
   useEffect(() => {
     let cancelled = false;
+    // One transaction per payout item across all payout batches.
+    apiFetch('/payouts')
+      .then(({ batches }) => {
+        if (cancelled) return;
+        setTransactions(batches.flatMap((b) => b.items));
+        if (batches[0]?.currency) setCurrency(batches[0].currency);
+      })
+      .catch(() => { if (!cancelled) setTransactions([]); });
     apiFetch('/audit-logs')
       .then(({ logs }) => { if (!cancelled) setAuditLogs(logs); })
       .catch((err) => { if (!cancelled) setLogsError(err.message || 'Could not load the audit log'); })
@@ -32,7 +41,7 @@ export const AuditorDashboard = ({ currentUser }) => {
   const verifiedCount = auditLogs.filter(l => l.status === 'VERIFIED').length;
   const recordedCount = auditLogs.filter(l => l.status === 'RECORDED').length;
   const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-  const completedTransactions = transactions.filter(t => t.status === 'COMPLETED').length;
+  const completedTransactions = transactions.filter(t => t.status === 'SUCCESS').length;
 
   const filteredLogs = filterType === 'ALL' ? auditLogs : auditLogs.filter(l => l.action === filterType);
 
@@ -61,7 +70,7 @@ export const AuditorDashboard = ({ currentUser }) => {
             <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-1 rounded">Verified</span>
           </div>
           <p className="text-xs text-slate-600 mb-1">Total Transactions</p>
-          <p className="text-2xl font-bold text-slate-900">₹{totalAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-slate-900">{formatMoney(totalAmount, currency)}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">

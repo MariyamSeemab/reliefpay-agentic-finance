@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ChevronRight, ChevronLeft, Check, AlertCircle, Upload, FileText } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
+import { formatMoney } from '../lib/money';
 
 export default function EmergencyApplicationPage() {
   const navigate = useNavigate();
@@ -128,7 +129,7 @@ export default function EmergencyApplicationPage() {
         break;
       case 'requestedAmount':
         if (!value) fieldErrors.requestedAmount = 'Requested amount is required';
-        if (isNaN(value) || parseInt(value) < 1000) fieldErrors.requestedAmount = 'Minimum amount is ₹1,000';
+        if (isNaN(value) || parseInt(value) < 10) fieldErrors.requestedAmount = 'Minimum amount is $10';
         break;
       case 'justification':
         if (!value.trim()) fieldErrors.justification = 'Please explain why you need this assistance';
@@ -488,7 +489,7 @@ export default function EmergencyApplicationPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Estimated Damage Amount (₹) *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Estimated Damage Amount (USD) *</label>
                 <input
                   type="number"
                   name="estimatedDamage"
@@ -536,7 +537,7 @@ export default function EmergencyApplicationPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Amount Requested (₹) *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Amount Requested (USD) *</label>
                 <input
                   type="number"
                   name="requestedAmount"
@@ -545,8 +546,8 @@ export default function EmergencyApplicationPage() {
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
                     errors.requestedAmount ? 'border-red-500' : 'border-slate-300'
                   }`}
-                  placeholder="Minimum ₹1,000"
-                  min="1000"
+                  placeholder="Minimum $10"
+                  min="10"
                 />
                 {errors.requestedAmount && (
                   <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
@@ -749,7 +750,7 @@ export default function EmergencyApplicationPage() {
                   <h3 className="font-semibold text-slate-900 mb-2 text-sm">Assistance Details</h3>
                   <div className="text-sm space-y-1 text-slate-600">
                     <p><span className="font-medium">Category:</span> {formData.assistanceCategory}</p>
-                    <p><span className="font-medium">Amount:</span> ₹{parseInt(formData.requestedAmount || 0).toLocaleString('en-IN')}</p>
+                    <p><span className="font-medium">Amount:</span> {formatMoney(parseInt(formData.requestedAmount || 0, 10))}</p>
                     <p><span className="font-medium">Damage Level:</span> {formData.propertyDamageLevel}</p>
                   </div>
                 </div>

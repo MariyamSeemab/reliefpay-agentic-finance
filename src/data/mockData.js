@@ -1,3 +1,4 @@
+// Demo-only fallback data. Amounts are USD and match backend/src/db/seedData.js.
 export const INITIAL_USER_ACCOUNTS = [
   { id: 'usr-1', name: 'Dr. Alok Verma', role: 'ADMIN', email: 'alok.v@reliefpay.org', org: 'Global Relief Network', title: 'Operations Director' },
   { id: 'usr-2', name: 'Sarah Jenkins', role: 'REVIEWER', email: 's.jenkins@reliefpay.org', org: 'Field Operations', title: 'Senior Case Officer' },
@@ -14,9 +15,9 @@ export const INITIAL_CAMPAIGNS = [
     disasterType: 'Flood Relief',
     location: 'Mumbra, Maharashtra',
     coordinates: [19.1796, 73.0231],
-    targetAmount: 500000,
-    raisedAmount: 368000,
-    disbursedAmount: 240000,
+    targetAmount: 5000,
+    raisedAmount: 3680,
+    disbursedAmount: 2400,
     status: 'ACTIVE',
     beneficiariesCount: 142,
     startDate: '2026-08-01',
@@ -29,9 +30,9 @@ export const INITIAL_CAMPAIGNS = [
     disasterType: 'Landslide & Flood',
     location: 'Wayanad, Kerala',
     coordinates: [11.6854, 76.1320],
-    targetAmount: 1200000,
-    raisedAmount: 950000,
-    disbursedAmount: 710000,
+    targetAmount: 12000,
+    raisedAmount: 9500,
+    disbursedAmount: 7100,
     status: 'ACTIVE',
     beneficiariesCount: 380,
     startDate: '2026-07-15',
@@ -44,9 +45,9 @@ export const INITIAL_CAMPAIGNS = [
     disasterType: 'Riverine Flooding',
     location: 'Silchar, Assam',
     coordinates: [24.8333, 92.7789],
-    targetAmount: 800000,
-    raisedAmount: 800000,
-    disbursedAmount: 790000,
+    targetAmount: 8000,
+    raisedAmount: 8000,
+    disbursedAmount: 7900,
     status: 'COMPLETED',
     beneficiariesCount: 510,
     startDate: '2026-05-10',
@@ -65,8 +66,8 @@ export const INITIAL_APPLICATIONS = [
     coordinates: [19.1810, 73.0210],
     householdMembers: 5,
     disasterType: 'Flood Emergency',
-    requestedAmount: 15000,
-    approvedAmount: 12000,
+    requestedAmount: 150,
+    approvedAmount: 120,
     priority: 'HIGH',
     status: 'UNDER_REVIEW',
     submittedAt: '2026-10-24 10:15 AM',
@@ -89,8 +90,8 @@ export const INITIAL_APPLICATIONS = [
     coordinates: [19.1750, 73.0280],
     householdMembers: 3,
     disasterType: 'Flood Emergency',
-    requestedAmount: 20000,
-    approvedAmount: 20000,
+    requestedAmount: 200,
+    approvedAmount: 200,
     priority: 'CRITICAL',
     status: 'APPROVED',
     submittedAt: '2026-10-25 02:30 PM',
@@ -112,19 +113,19 @@ export const INITIAL_TRANSACTIONS = [
     applicationId: 'RPA-2026-0015',
     beneficiaryName: 'Rahim Shaikh',
     campaignTitle: 'Mumbra Monsoons Relief',
-    amount: 20000,
-    provider: 'Bank Direct Payout (NPCI / UPI)',
+    amount: 200,
+    provider: 'PayPal Payouts',
     recipientRef: 'xxxx-xxxx-4482',
     status: 'COMPLETED',
     timestamp: '2026-10-26 09:15 AM',
-    gatewayRef: 'UPI-N261026994112'
+    gatewayRef: 'PAYPAL-N261026994112'
   },
   {
     id: 'TXN-880198',
     applicationId: 'RPA-2026-0012',
     beneficiaryName: 'Ayesha Khan',
     campaignTitle: 'Mumbra Monsoons Relief',
-    amount: 12000,
+    amount: 120,
     provider: 'Instant Relief Transfer',
     recipientRef: 'xxxx-xxxx-9012',
     status: 'PENDING',
@@ -134,9 +135,9 @@ export const INITIAL_TRANSACTIONS = [
 ];
 
 export const INITIAL_DONATIONS = [
-  { id: 'DON-901', donorName: 'Rohan Mehta', amount: 50000, campaignTitle: 'Mumbra Monsoons Relief & Shelter Fund', timestamp: '2026-10-20 04:12 PM', status: 'COMPLETED' },
-  { id: 'DON-902', donorName: 'Anonymous Supporter', amount: 15000, campaignTitle: 'Kerala Flash Floods Emergency Payouts', timestamp: '2026-10-22 01:45 PM', status: 'COMPLETED' },
-  { id: 'DON-903', donorName: 'Anita Desai', amount: 25000, campaignTitle: 'Mumbra Monsoons Relief & Shelter Fund', timestamp: '2026-10-27 10:05 AM', status: 'COMPLETED' }
+  { id: 'DON-901', donorName: 'Rohan Mehta', amount: 500, campaignTitle: 'Mumbra Monsoons Relief & Shelter Fund', timestamp: '2026-10-20 04:12 PM', status: 'COMPLETED' },
+  { id: 'DON-902', donorName: 'Anonymous Supporter', amount: 150, campaignTitle: 'Kerala Flash Floods Emergency Payouts', timestamp: '2026-10-22 01:45 PM', status: 'COMPLETED' },
+  { id: 'DON-903', donorName: 'Anita Desai', amount: 250, campaignTitle: 'Mumbra Monsoons Relief & Shelter Fund', timestamp: '2026-10-27 10:05 AM', status: 'COMPLETED' }
 ];
 
 export const INITIAL_VOLUNTEER_TASKS = [

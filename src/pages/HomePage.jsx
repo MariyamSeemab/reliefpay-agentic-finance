@@ -110,7 +110,7 @@ export default function HomePage() {
                 <Shield className="w-6 h-6 text-emerald-600" />
               </div>
               <h4 className="font-semibold text-slate-900">100% Transparent</h4>
-              <p className="text-sm text-slate-600">Every transaction tracked, every beneficiary verified, every rupee accounted for</p>
+              <p className="text-sm text-slate-600">Every transaction tracked, every beneficiary verified, every dollar accounted for</p>
             </div>
             <div className="space-y-3 text-center">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto">

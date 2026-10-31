@@ -2,6 +2,7 @@ import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { Layers, MapPin } from 'lucide-react';
 import L from 'leaflet';
+import { formatMoney } from '../../lib/money';
 
 // Simple SVG icon maker for Leaflet map markers
 const createCustomIcon = (color) => {
@@ -65,7 +66,7 @@ export const ReliefMap = ({ campaigns, applications }) => {
                   <h4 className="font-bold text-slate-900 text-sm">{cmp.title}</h4>
                   <p className="text-xs text-slate-600">{cmp.location}</p>
                   <div className="text-xs font-semibold text-slate-800 pt-1">
-                    Raised: ₹{cmp.raisedAmount.toLocaleString()} / ₹{cmp.targetAmount.toLocaleString()}
+                    Raised: {formatMoney(cmp.raisedAmount, cmp.currency)} / {formatMoney(cmp.targetAmount, cmp.currency)}
                   </div>
                 </div>
               </Popup>
@@ -83,7 +84,7 @@ export const ReliefMap = ({ campaigns, applications }) => {
                   <h4 className="font-bold text-slate-900 text-sm">{app.beneficiaryName} ({app.id})</h4>
                   <p className="text-xs text-slate-600">{app.area}</p>
                   <div className="text-xs font-semibold text-slate-800 pt-1">
-                    Requested: ₹{app.requestedAmount.toLocaleString()} • Status: {app.status}
+                    Requested: {formatMoney(app.requestedAmount, app.currency)} • Status: {app.status}
                   </div>
                 </div>
               </Popup>

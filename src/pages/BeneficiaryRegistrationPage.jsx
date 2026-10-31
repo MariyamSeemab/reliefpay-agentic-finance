@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ChevronRight, ChevronLeft, Check, AlertCircle } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
+import { formatMoney } from '../lib/money';
 
 export default function BeneficiaryRegistrationPage() {
   const navigate = useNavigate();
@@ -466,7 +467,7 @@ export default function BeneficiaryRegistrationPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Monthly Household Income (₹) *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Monthly Household Income (USD) *</label>
                 <input
                   type="number"
                   name="monthlyIncome"
@@ -565,7 +566,7 @@ export default function BeneficiaryRegistrationPage() {
                     <p><span className="text-slate-600">Family Size:</span> <span className="font-medium">{formData.familySize} members</span></p>
                     <p><span className="text-slate-600">Dependents:</span> <span className="font-medium">{formData.dependents}</span></p>
                     <p><span className="text-slate-600">Occupation:</span> <span className="font-medium">{formData.occupation}</span></p>
-                    <p><span className="text-slate-600">Monthly Income:</span> <span className="font-medium">₹{parseInt(formData.monthlyIncome).toLocaleString('en-IN')}</span></p>
+                    <p><span className="text-slate-600">Monthly Income:</span> <span className="font-medium">{formatMoney(parseInt(formData.monthlyIncome, 10))}</span></p>
                   </div>
                 </div>
 

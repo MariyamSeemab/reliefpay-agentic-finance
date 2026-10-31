@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { AdminDashboard } from '../components/admin/AdminDashboard';
@@ -7,27 +7,83 @@ import { DonorDashboard } from '../components/dashboard/DonorDashboard';
 import { VolunteerDashboard } from '../components/dashboard/VolunteerDashboard';
 import { AuditorDashboard } from '../components/dashboard/AuditorDashboard';
 import { Heart, LogOut, Settings, User, Menu, X } from 'lucide-react';
-import { INITIAL_CAMPAIGNS, INITIAL_APPLICATIONS, INITIAL_TRANSACTIONS } from '../data/mockData';
+import { apiFetch } from '../lib/api';
+import { formatMoney } from '../lib/money';
+
+const STAFF_ROLES = ['ADMIN', 'REVIEWER'];
+
+// Flattens payout batch items into one row per beneficiary payment.
+function payoutTransactions(batches) {
+  return batches.flatMap((batch) =>
+    batch.items.map((item) => ({
+      id: item.id,
+      beneficiaryName: item.beneficiaryName,
+      campaignTitle: batch.campaignTitle,
+      amount: item.amount,
+      currency: batch.currency,
+      status: item.status,
+      timestamp: batch.releasedAt || batch.createdAt,
+    })),
+  );
+}
 
 export default function DashboardPage() {
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('dashboard');
-  const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS);
-  const [applications] = useState(INITIAL_APPLICATIONS);
-  const [transactions] = useState(INITIAL_TRANSACTIONS);
+  const [campaigns, setCampaigns] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [staffLoading, setStaffLoading] = useState(true);
+  const [staffError, setStaffError] = useState('');
+
+  const isStaff = STAFF_ROLES.includes(currentUser?.role) || !currentUser?.role;
+  const isAdmin = currentUser?.role === 'ADMIN';
+
+  useEffect(() => {
+    if (!isStaff) return undefined;
+    let cancelled = false;
+    setStaffLoading(true);
+    setStaffError('');
+    Promise.all([
+      apiFetch('/campaigns', { auth: false }),
+      apiFetch('/applications'),
+      // Payout batches are visible to ADMIN and AUDITOR only.
+      isAdmin ? apiFetch('/payouts') : Promise.resolve({ batches: [] }),
+    ])
+      .then(([campaignRes, applicationRes, payoutRes]) => {
+        if (cancelled) return;
+        setCampaigns(campaignRes.campaigns);
+        setApplications(applicationRes.applications);
+        setTransactions(payoutTransactions(payoutRes.batches));
+      })
+      .catch((err) => { if (!cancelled) setStaffError(err.message || 'Could not load dashboard data'); })
+      .finally(() => { if (!cancelled) setStaffLoading(false); });
+    return () => { cancelled = true; };
+  }, [isStaff, isAdmin]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
+  const renderAdminDashboard = () => {
+    if (staffLoading || staffError) {
+      return (
+        <div className={`bg-white rounded-2xl border border-slate-200 p-8 text-center ${staffError ? 'text-red-700' : 'text-slate-600'}`}>
+          {staffError || 'Loading dashboard data…'}
+        </div>
+      );
+    }
+    return <AdminDashboard campaigns={campaigns} applications={applications} transactions={transactions} />;
+  };
+
   const renderDashboard = () => {
     switch (currentUser?.role) {
       case 'ADMIN':
       case 'REVIEWER':
-        return <AdminDashboard campaigns={campaigns} applications={applications} transactions={transactions} />;
+        return renderAdminDashboard();
       case 'BENEFICIARY':
         return <BeneficiaryDashboard currentUser={currentUser} />;
       case 'DONOR':
@@ -37,7 +93,7 @@ export default function DashboardPage() {
       case 'AUDITOR':
         return <AuditorDashboard currentUser={currentUser} />;
       default:
-        return <AdminDashboard campaigns={campaigns} applications={applications} transactions={transactions} />;
+        return renderAdminDashboard();
     }
   };
 
@@ -300,7 +356,7 @@ export default function DashboardPage() {
             {activeSection === 'applications' && (currentUser?.role === 'ADMIN' || currentUser?.role === 'REVIEWER') && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-bold text-slate-900">Applications</h2>
-                <AdminDashboard campaigns={campaigns} applications={applications} transactions={transactions} />
+                {renderAdminDashboard()}
               </div>
             )}
 
@@ -314,14 +370,14 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between mb-4">
                         <p className="font-bold text-slate-900">{txn.beneficiaryName}</p>
                         <span className={`text-xs font-bold px-3 py-1 rounded ${
-                          txn.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'
+                          txn.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-yellow-100 text-yellow-700'
                         }`}>
                           {txn.status}
                         </span>
                       </div>
                       <p className="text-sm text-slate-600 mb-3">{txn.campaignTitle}</p>
-                      <p className="text-2xl font-bold text-slate-900 mb-2">₹{txn.amount.toLocaleString()}</p>
-                      <p className="text-xs text-slate-500">{txn.timestamp}</p>
+                      <p className="text-2xl font-bold text-slate-900 mb-2">{formatMoney(txn.amount, txn.currency)}</p>
+                      <p className="text-xs text-slate-500">{txn.timestamp ? new Date(txn.timestamp).toLocaleString() : ''}</p>
                     </div>
                   ))}
                 </div>

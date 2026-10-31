@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Heart, TrendingUp, Award, Calendar, BarChart3, Download } from 'lucide-react';
-import { INITIAL_DONATIONS, INITIAL_CAMPAIGNS } from '../../data/mockData';
+import { INITIAL_DONATIONS } from '../../data/mockData';
+import { apiFetch } from '../../lib/api';
+import { formatMoney } from '../../lib/money';
 
 export const DonorDashboard = ({ currentUser }) => {
+  // The API has no per-donor donation history yet, so the list stays demo data (USD).
   const [donations] = useState(INITIAL_DONATIONS);
-  const [campaigns] = useState(INITIAL_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/campaigns', { auth: false })
+      .then(({ campaigns: list }) => { if (!cancelled) setCampaigns(list); })
+      .catch(() => { if (!cancelled) setCampaigns([]); });
+    return () => { cancelled = true; };
+  }, []);
 
   const totalDonated = donations.reduce((sum, d) => sum + d.amount, 0);
   const beneficiariesHelped = 450; // Mock value
@@ -26,7 +37,7 @@ export const DonorDashboard = ({ currentUser }) => {
             <span className="text-xs font-semibold bg-red-50 text-red-700 px-2 py-1 rounded">Lifetime</span>
           </div>
           <p className="text-xs text-slate-600 mb-1">Total Donated</p>
-          <p className="text-2xl font-bold text-slate-900">₹{totalDonated.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-slate-900">{formatMoney(totalDonated)}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -72,7 +83,7 @@ export const DonorDashboard = ({ currentUser }) => {
                   <p className="text-xs text-slate-500">{donation.timestamp}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-slate-900">₹{donation.amount.toLocaleString()}</p>
+                  <p className="font-bold text-slate-900">{formatMoney(donation.amount)}</p>
                   <p className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded inline-block mt-1">{donation.status}</p>
                 </div>
               </div>
@@ -88,7 +99,7 @@ export const DonorDashboard = ({ currentUser }) => {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-slate-600">Donation Distribution</span>
-                <span className="text-sm font-bold text-slate-900">₹{totalDonated.toLocaleString()}</span>
+                <span className="text-sm font-bold text-slate-900">{formatMoney(totalDonated)}</span>
               </div>
               <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                 <div className="h-full w-3/4 bg-gradient-to-r from-emerald-400 to-emerald-600"></div>
@@ -123,7 +134,7 @@ export const DonorDashboard = ({ currentUser }) => {
         <h2 className="text-lg font-bold text-slate-900">Recommended Campaigns</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {campaigns.slice(0, 3).map((campaign) => {
-            const pct = Math.min(100, Math.round((campaign.raisedAmount / campaign.targetAmount) * 100));
+            const pct = campaign.targetAmount ? Math.min(100, Math.round((campaign.raisedAmount / campaign.targetAmount) * 100)) : 0;
             return (
               <div key={campaign.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4 hover:shadow-md transition">
                 <div className="space-y-2">
@@ -139,7 +150,7 @@ export const DonorDashboard = ({ currentUser }) => {
 
                 <div className="space-y-2 pt-4 border-t border-slate-100">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span>₹{campaign.raisedAmount.toLocaleString()}</span>
+                    <span>{formatMoney(campaign.raisedAmount, campaign.currency)}</span>
                     <span className="text-slate-500">{pct}%</span>
                   </div>
                   <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">

@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Send, Zap, Loader, CheckCircle, AlertCircle, TrendingUp, MessageSquare, Target, DollarSign } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
+import { Markdown } from '../components/common/Markdown';
 import { apiFetch } from '../lib/api';
 import { formatMoney } from '../lib/money';
 
@@ -200,7 +201,7 @@ export default function AICommandCentrePage() {
                           {msg.model && <span className="text-xs text-slate-400 font-mono">{msg.model}</span>}
                         </div>
 
-                        {msg.text && <p className="text-slate-300 mb-3 whitespace-pre-wrap">{msg.text}</p>}
+                        {msg.text && <Markdown text={msg.text} className="text-slate-300 mb-3" />}
 
                         {msg.steps?.length > 0 && (
                           <div className="space-y-1">

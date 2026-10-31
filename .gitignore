@@ -169,7 +169,8 @@ out/
 
 # Gatsby files
 .cache/
-public
+# Vite serves public/ as static assets, so it must stay tracked.
+# public
 
 # vuepress
 .vuepress/dist
