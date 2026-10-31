@@ -6,8 +6,11 @@ import { campaignAvailableCents, toDollars } from './campaigns.js';
 
 export const MAX_BATCH_ITEMS = 50;
 const MAX_FAILED_AUTH_ATTEMPTS = 5;
-// A batch in one of these states no longer holds its applications.
-const INACTIVE_BATCH_STATUSES = ['RELEASE_FAILED', 'DENIED', 'CANCELED'];
+// A batch in one of these states no longer holds its applications. A
+// RELEASE_FAILED batch keeps holding them: PayPal may have accepted it before
+// the error, so it must be retried under the same sender_batch_id (which
+// PayPal deduplicates) instead of being re-drafted into a new batch.
+const INACTIVE_BATCH_STATUSES = ['DENIED', 'CANCELED'];
 const RELEASABLE_STATUSES = ['DRAFT', 'RELEASE_FAILED'];
 const PAYPAL_BATCH_STATUSES = ['PENDING', 'PROCESSING', 'SUCCESS', 'DENIED', 'CANCELED'];
 const TERMINAL_BATCH_STATUSES = ['SUCCESS', 'DENIED', 'CANCELED'];
@@ -95,6 +98,17 @@ function batchTarget(id) {
   return `Payout batch ${id}`;
 }
 
+// The payout item that currently holds an application, if any.
+export function findActiveBatchItem(db, applicationId) {
+  const inactive = INACTIVE_BATCH_STATUSES.map(() => '?').join(',');
+  return db
+    .prepare(
+      `SELECT pi.id, pi.batch_id, pi.amount_cents FROM payout_items pi JOIN payout_batches pb ON pb.id = pi.batch_id
+        WHERE pi.application_id = ? AND pb.status NOT IN (${inactive}) LIMIT 1`,
+    )
+    .get(applicationId, ...INACTIVE_BATCH_STATUSES);
+}
+
 export function draftPayoutBatch(db, config, { actor, userId, campaignId, applicationIds, note, draftedByAi = false }) {
   if (!Array.isArray(applicationIds) || applicationIds.length < 1 || applicationIds.length > MAX_BATCH_ITEMS) {
     throw new HttpError(400, 'INVALID_APPLICATIONS', `Provide 1 to ${MAX_BATCH_ITEMS} application ids`);
@@ -109,11 +123,6 @@ export function draftPayoutBatch(db, config, { actor, userId, campaignId, applic
   if (!campaign) throw new HttpError(404, 'NOT_FOUND', 'Campaign not found');
 
   const findApp = db.prepare('SELECT * FROM applications WHERE id = ?');
-  const inactive = INACTIVE_BATCH_STATUSES.map(() => '?').join(',');
-  const findActiveBatch = db.prepare(
-    `SELECT pb.id FROM payout_items pi JOIN payout_batches pb ON pb.id = pi.batch_id
-      WHERE pi.application_id = ? AND pb.status NOT IN (${inactive}) LIMIT 1`,
-  );
 
   const reasons = {};
   const apps = [];
@@ -125,8 +134,8 @@ export function draftPayoutBatch(db, config, { actor, userId, campaignId, applic
     else if (!(app.approved_cents > 0)) reasons[id] = 'NO_APPROVED_AMOUNT';
     else if (!app.paypal_email) reasons[id] = 'NO_PAYPAL_EMAIL';
     else {
-      const other = findActiveBatch.get(id, ...INACTIVE_BATCH_STATUSES);
-      if (other) reasons[id] = `IN_BATCH_${other.id}`;
+      const other = findActiveBatchItem(db, id);
+      if (other) reasons[id] = `IN_BATCH_${other.batch_id}`;
       else apps.push(app);
     }
   }

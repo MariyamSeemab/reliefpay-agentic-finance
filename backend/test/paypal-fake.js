@@ -6,6 +6,7 @@ import { jsonResponse } from './helpers.js';
 //   captureValue  - amount PayPal reports as captured (default '25.00')
 //   verify        - verification_status for webhook verification (default 'SUCCESS')
 //   payoutBatch   - object or (id) => object returned by GET /v1/payments/payouts/:id
+//   payoutError   - HTTP status returned by POST /v1/payments/payouts instead of 201
 export function makeFakePayPal() {
   const calls = [];
   const state = {};
@@ -49,6 +50,9 @@ export function makeFakePayPal() {
       });
     }
     if (method === 'POST' && pathname === '/v1/payments/payouts') {
+      if (state.payoutError) {
+        return jsonResponse(state.payoutError, { name: 'INTERNAL_SERVICE_ERROR', debug_id: 'fake-payout-debug' });
+      }
       n += 1;
       return jsonResponse(201, {
         batch_header: {

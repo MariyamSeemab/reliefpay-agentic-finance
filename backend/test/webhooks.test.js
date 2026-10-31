@@ -122,6 +122,57 @@ describe('paypal webhooks', () => {
     assert.equal(raised(), 368000 + 2500);
   });
 
+  test('capture followed by PAYMENT.CAPTURE.COMPLETED for the same donation -> raised up once', async () => {
+    const donor = await loginAs(ctx.app, 'mehta.r@techcorp.in');
+    const created = await request(ctx.app).post('/api/donations/orders').set(bearer(donor)).send({ campaignId: 'cmp-01', amount: 25 });
+    const captured = await request(ctx.app).post(`/api/donations/orders/${created.body.orderId}/capture`).set(bearer(donor)).send();
+    assert.equal(captured.status, 200);
+    const captureId = captured.body.donation.paypalCaptureId;
+    assert.equal(raised(), 368000 + 2500);
+
+    const res = await post({
+      id: 'WH-EVT-C3',
+      event_type: 'PAYMENT.CAPTURE.COMPLETED',
+      resource: { id: captureId, status: 'COMPLETED', custom_id: created.body.donationId, amount: { currency_code: 'USD', value: '25.00' } },
+    });
+    assert.equal(res.status, 200);
+    assert.equal(raised(), 368000 + 2500);
+    assert.equal(ctx.db.prepare('SELECT status FROM donations WHERE id = ?').get(created.body.donationId).status, 'COMPLETED');
+  });
+
+  test('events for unknown payout items and batches -> 200, nothing changes', async () => {
+    const before = ctx.db.prepare('SELECT id, status FROM payout_items ORDER BY id').all();
+    const itemRes = await post({
+      id: 'WH-EVT-U1',
+      event_type: 'PAYMENT.PAYOUTS-ITEM.SUCCEEDED',
+      resource: { payout_item_id: 'PPI-UNKNOWN', transaction_status: 'SUCCESS', payout_item: { sender_item_id: 'PI-UNKNOWN' } },
+    });
+    assert.equal(itemRes.status, 200);
+    const batchRes = await post({
+      id: 'WH-EVT-U2',
+      event_type: 'PAYMENT.PAYOUTSBATCH.SUCCESS',
+      resource: { batch_header: { payout_batch_id: 'PPB-UNKNOWN', batch_status: 'SUCCESS' } },
+    });
+    assert.equal(batchRes.status, 200);
+    assert.deepEqual(ctx.db.prepare('SELECT id, status FROM payout_items ORDER BY id').all(), before);
+    assert.equal(ctx.db.prepare("SELECT status FROM payout_batches WHERE id = 'PB-SEED-001'").get().status, 'PENDING');
+    assert.equal(disbursed(), 240000);
+  });
+
+  test('missing paypal-* headers -> 400, no audit row, no PayPal call', async () => {
+    const auditsBefore = ctx.db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n;
+    const callsBefore = fake.calls.length;
+    const { 'PAYPAL-TRANSMISSION-SIG': _omitted, ...partial } = PAYPAL_HEADERS;
+    for (const headers of [{}, partial]) {
+      const res = await request(ctx.app).post('/api/webhooks/paypal').set(headers).send(itemSucceeded());
+      assert.equal(res.status, 400);
+      assert.equal(res.body.error, 'MISSING_SIGNATURE_HEADERS');
+    }
+    assert.equal(ctx.db.prepare('SELECT COUNT(*) AS n FROM audit_logs').get().n, auditsBefore);
+    assert.equal(fake.calls.length, callsBefore);
+    assert.equal(ctx.db.prepare('SELECT COUNT(*) AS n FROM webhook_events').get().n, 0);
+  });
+
   test('unknown event types are recorded only', async () => {
     const res = await post({ id: 'WH-EVT-X', event_type: 'CHECKOUT.ORDER.APPROVED', resource: { id: 'ORDER-9' } });
     assert.equal(res.status, 200);

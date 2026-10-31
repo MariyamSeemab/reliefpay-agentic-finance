@@ -16,6 +16,15 @@ const ITEM_EVENTS = [
   'PAYMENT.PAYOUTS-ITEM.UNCLAIMED',
 ];
 
+// Express lower-cases header names.
+const SIGNATURE_HEADERS = [
+  'paypal-auth-algo',
+  'paypal-cert-url',
+  'paypal-transmission-id',
+  'paypal-transmission-sig',
+  'paypal-transmission-time',
+];
+
 function reject(db, details, status = 'REJECTED') {
   writeAudit(db, { actor: PAYPAL_WEBHOOK_ACTOR, action: 'WEBHOOK_REJECTED', target: 'PayPal webhook', status, details });
 }
@@ -61,6 +70,11 @@ function dispatch(db, event) {
 }
 
 export async function handlePayPalWebhook(db, paypal, config, { headers, event }) {
+  // Cheap pre-check: a request without PayPal's signature headers cannot
+  // verify, so it gets no audit row and no OAuth + verify call to PayPal.
+  if (!SIGNATURE_HEADERS.every((h) => typeof headers?.[h] === 'string' && headers[h] !== '')) {
+    throw new HttpError(400, 'MISSING_SIGNATURE_HEADERS', 'PayPal signature headers are missing');
+  }
   if (!config.paypal.webhookId || !paypal?.isConfigured) {
     reject(db, { reason: 'WEBHOOK_NOT_CONFIGURED' });
     throw new HttpError(503, 'WEBHOOK_NOT_CONFIGURED', 'PayPal webhook verification is not configured');

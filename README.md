@@ -160,6 +160,12 @@ We evaluated the PayPal Agent Toolkit and did not use it. It has no Payouts tool
 - **Server-side authorization code.** The release code is checked on the server with a constant-time comparison. After 5 wrong attempts the batch is locked, and every failed attempt is audited.
 - **No secrets in the browser.** The PayPal client secret, Groq key and authorization code live only in the API environment. The browser receives only the PayPal client id.
 - **Funds checks.** Drafting fails if the campaign does not have enough unreserved funds or an application is not approved.
+- **No double payouts after a failed release.** If PayPal returns an error, the batch moves to `RELEASE_FAILED` and keeps its applications, so they cannot be drafted into a second batch. Retry the same batch: it is resent with the same `sender_batch_id`, which PayPal deduplicates. While an application sits in a batch, its approved amount cannot be changed.
+
+## Known limitations
+
+- **Refunds and reversals are recorded only.** `PAYMENT.CAPTURE.REFUNDED`/`REVERSED` webhooks and payout items that become `RETURNED` or `REVERSED` after `SUCCESS` are written to the audit log, but they do not lower the campaign's raised or disbursed totals.
+- **A batch can get stuck in `RELEASING`.** If the API process stops after sending a batch to PayPal and before PayPal answers, the batch stays `RELEASING` and cannot be released or synced. Check the batch in the PayPal sandbox dashboard, then run `npm run seed:reset --prefix backend` to reset the demo data. On Render the database is re-seeded on every restart.
 
 ## Demo script (under 3 minutes)
 

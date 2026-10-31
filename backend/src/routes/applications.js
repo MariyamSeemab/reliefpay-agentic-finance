@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { actorFromUser, writeAudit } from '../audit.js';
 import { requireAuth, requireRole } from '../auth.js';
 import { toDollars } from '../services/campaigns.js';
+import { findActiveBatchItem } from '../services/payouts.js';
 
 const REVIEW_STATUSES = ['APPROVED', 'REJECTED', 'DOCUMENT_REQUESTED', 'UNDER_REVIEW'];
 const REMARKS_REQUIRED = ['REJECTED', 'DOCUMENT_REQUESTED'];
@@ -86,6 +87,16 @@ export function applicationsRouter({ db, config }) {
         approvedCents = Math.round(amount * 100);
       } else {
         approvedCents = row.requested_cents;
+      }
+      // A payout item keeps the amount it was drafted with, so changing the
+      // approved amount here would make release pay a stale amount.
+      const held = findActiveBatchItem(db, row.id);
+      if (held && held.amount_cents !== approvedCents) {
+        return res.status(409).json({
+          error: 'APPLICATION_IN_BATCH',
+          message: `Application is in payout batch ${held.batch_id} for ${toDollars(held.amount_cents)}; its approved amount cannot change`,
+          batchId: held.batch_id,
+        });
       }
     }
 

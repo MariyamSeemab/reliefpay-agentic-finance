@@ -122,6 +122,57 @@ describe('payouts', () => {
     assert.equal(payoutPosts().length, 1);
   });
 
+  test('PayPal 5xx on release -> RELEASE_FAILED, items DRAFT, audited; apps stay held; retry reuses sender_batch_id', async () => {
+    fake.state.payoutError = 500;
+    const failed = await release('PB-SEED-001', CODE);
+    assert.equal(failed.status, 502);
+    assert.equal(failed.body.error, 'PAYPAL_PAYOUT_FAILED');
+    assert.equal(batchRow('PB-SEED-001').status, 'RELEASE_FAILED');
+    assert.equal(batchRow('PB-SEED-001').paypal_batch_id, null);
+    const statuses = ctx.db.prepare("SELECT status FROM payout_items WHERE batch_id = 'PB-SEED-001'").all().map((r) => r.status);
+    assert.deepEqual(statuses, ['DRAFT', 'DRAFT']);
+    assert.ok(ctx.db.prepare("SELECT 1 FROM audit_logs WHERE action = 'PAYOUT_RELEASE_FAILED' AND status = 'FAILED'").get());
+
+    // The failed batch still holds its applications, so they cannot be paid twice.
+    const redraft = await request(ctx.app)
+      .post('/api/payouts')
+      .set(bearer(admin))
+      .send({ campaignId: 'cmp-01', applicationIds: ['RPA-2026-0015'] });
+    assert.equal(redraft.status, 409);
+    assert.deepEqual(redraft.body.offendingIds, ['RPA-2026-0015']);
+    assert.equal(redraft.body.reasons['RPA-2026-0015'], 'IN_BATCH_PB-SEED-001');
+
+    delete fake.state.payoutError;
+    const retry = await release('PB-SEED-001', CODE);
+    assert.equal(retry.status, 200);
+    assert.equal(retry.body.batch.status, 'PENDING');
+    const posts = payoutPosts();
+    assert.equal(posts.length, 2);
+    assert.deepEqual(
+      posts.map((p) => p.body.sender_batch_header.sender_batch_id),
+      ['PB-SEED-001', 'PB-SEED-001'],
+    );
+  });
+
+  test('changing the approved amount of an application held by a batch -> 409', async () => {
+    const reviewer = await loginAs(ctx.app, REVIEWER);
+    const patch = (approvedAmount) =>
+      request(ctx.app)
+        .patch('/api/applications/RPA-2026-0015/status')
+        .set(bearer(reviewer))
+        .send({ status: 'APPROVED', approvedAmount });
+    const before = ctx.db.prepare("SELECT approved_cents FROM applications WHERE id = 'RPA-2026-0015'").get().approved_cents;
+
+    const res = await patch(999);
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error, 'APPLICATION_IN_BATCH');
+    assert.equal(res.body.batchId, 'PB-SEED-001');
+    assert.equal(ctx.db.prepare("SELECT approved_cents FROM applications WHERE id = 'RPA-2026-0015'").get().approved_cents, before);
+
+    // Re-approving with the drafted amount is still allowed.
+    assert.equal((await patch(200)).status, 200);
+  });
+
   test('PAYOUT_RECEIVER_EMAIL overrides every receiver', async () => {
     await setup({ PAYOUT_RECEIVER_EMAIL: 'sandbox-personal@example.com' });
     const res = await release('PB-SEED-001', CODE);
