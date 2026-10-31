@@ -5,6 +5,7 @@ import { createApp } from '../src/app.js';
 import { readConfig } from '../src/config.js';
 import { openDb } from '../src/db/index.js';
 import { seedIfEmpty } from '../src/db/seed.js';
+import { createPayPalClient } from '../src/services/paypalClient.js';
 
 export function jsonResponse(status, body) {
   return new Response(JSON.stringify(body), {
@@ -23,7 +24,8 @@ function recordingFetch(name, impl, calls) {
 
 // Builds an app over a fresh in-memory seeded DB. PayPal and Groq never hit the
 // network: tests pass fake fetch implementations, and every call is recorded in
-// `calls`. FEAT-002/FEAT-003 build the paypal/groq clients from these fetches.
+// `calls`. The PayPal client is built from fetches.paypal (see paypal-fake.js);
+// FEAT-003 builds the Groq client from fetches.groq.
 export function makeTestContext({ configOverrides = {}, paypalFetch, groqFetch } = {}) {
   const config = readConfig({
     JWT_SECRET: 'test-secret',
@@ -45,8 +47,9 @@ export function makeTestContext({ configOverrides = {}, paypalFetch, groqFetch }
     groq: recordingFetch('groq', groqFetch, calls),
   };
 
-  const app = createApp({ db, config, paypal: null, groq: null });
-  return { app, db, config, calls, fetches };
+  const paypal = createPayPalClient({ ...config.paypal, fetch: fetches.paypal });
+  const app = createApp({ db, config, paypal, groq: null });
+  return { app, db, config, calls, fetches, paypal };
 }
 
 export async function loginAs(app, email) {
