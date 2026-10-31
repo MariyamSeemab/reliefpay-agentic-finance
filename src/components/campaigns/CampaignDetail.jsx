@@ -1,8 +1,21 @@
 import React, { useState } from 'react';
 import { Heart, Share2, MapPin, Calendar, Users, TrendingUp, AlertCircle, CheckCircle, Zap } from 'lucide-react';
+import { formatMoney } from '../../lib/money';
+import { PayPalDonateButtons } from './PayPalDonateButtons';
 
-export const CampaignDetail = ({ campaign, onClose }) => {
-  const [donated, setDonated] = useState(false);
+const PRESET_AMOUNTS = [10, 25, 50, 100];
+
+export const CampaignDetail = ({ campaign, onClose, onCampaignUpdated }) => {
+  const [donated, setDonated] = useState(null);
+  const [selectedAmount, setSelectedAmount] = useState(25);
+  const [customAmount, setCustomAmount] = useState('');
+  const donationAmount = customAmount !== '' ? Math.round(Number(customAmount) * 100) / 100 : selectedAmount;
+  const currency = campaign.currency || 'USD';
+
+  const handleDonated = (updatedCampaign, donation) => {
+    setDonated(donation);
+    onCampaignUpdated?.(updatedCampaign);
+  };
   const progressPercentage = Math.min(100, Math.round((campaign.raisedAmount / campaign.targetAmount) * 100));
   const remainingAmount = campaign.targetAmount - campaign.raisedAmount;
   const daysRemaining = 15; // Mock value
@@ -35,7 +48,7 @@ export const CampaignDetail = ({ campaign, onClose }) => {
             <TrendingUp className="w-4 h-4 text-blue-600" />
             <p className="text-xs text-slate-600 font-semibold">Raised</p>
           </div>
-          <p className="text-2xl font-bold text-slate-900">₹{campaign.raisedAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-slate-900">{formatMoney(campaign.raisedAmount, currency)}</p>
           <p className="text-xs text-slate-500 mt-2">{progressPercentage}% of goal</p>
         </div>
 
@@ -44,8 +57,8 @@ export const CampaignDetail = ({ campaign, onClose }) => {
             <Heart className="w-4 h-4 text-red-600" />
             <p className="text-xs text-slate-600 font-semibold">Target</p>
           </div>
-          <p className="text-2xl font-bold text-slate-900">₹{campaign.targetAmount.toLocaleString()}</p>
-          <p className="text-xs text-slate-500 mt-2">Remaining: ₹{remainingAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-slate-900">{formatMoney(campaign.targetAmount, currency)}</p>
+          <p className="text-xs text-slate-500 mt-2">Remaining: {formatMoney(remainingAmount, currency)}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -80,7 +93,7 @@ export const CampaignDetail = ({ campaign, onClose }) => {
           ></div>
         </div>
         <p className="text-xs text-slate-600 mt-3">
-          {campaign.raisedAmount.toLocaleString()} of {campaign.targetAmount.toLocaleString()} collected
+          {formatMoney(campaign.raisedAmount, currency)} of {formatMoney(campaign.targetAmount, currency)} collected
         </p>
       </div>
 
@@ -103,30 +116,60 @@ export const CampaignDetail = ({ campaign, onClose }) => {
         <h3 className="font-bold text-slate-900">Support This Campaign</h3>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[1000, 5000, 10000, 25000].map((amount) => (
-            <button
-              key={amount}
-              className="border-2 border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-bold py-3 rounded-lg text-sm transition"
-            >
-              ₹{(amount / 1000).toFixed(0)}K
-            </button>
-          ))}
+          {PRESET_AMOUNTS.map((amount) => {
+            const isSelected = customAmount === '' && selectedAmount === amount;
+            return (
+              <button
+                key={amount}
+                type="button"
+                onClick={() => { setSelectedAmount(amount); setCustomAmount(''); }}
+                className={`border-2 font-bold py-3 rounded-lg text-sm transition ${
+                  isSelected
+                    ? 'border-[#087E83] bg-[#087E83] text-white'
+                    : 'border-emerald-300 hover:bg-emerald-100 text-emerald-900'
+                }`}
+              >
+                {formatMoney(amount, currency)}
+              </button>
+            );
+          })}
         </div>
 
-        <button
-          onClick={() => setDonated(true)}
-          className="w-full bg-gradient-to-r from-[#087E83] to-[#16845B] hover:shadow-lg text-white font-bold py-4 rounded-lg text-base transition flex items-center justify-center gap-2"
-        >
-          <Heart className="w-5 h-5" />
-          Donate Now
-        </button>
+        <div>
+          <label htmlFor="custom-amount" className="block text-xs font-semibold text-slate-600 mb-1">
+            Or enter a custom amount ({currency})
+          </label>
+          <input
+            id="custom-amount"
+            type="number"
+            min="1"
+            step="0.01"
+            value={customAmount}
+            onChange={(e) => setCustomAmount(e.target.value)}
+            placeholder="e.g. 40"
+            className="w-full px-4 py-2.5 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-[#087E83] focus:border-transparent outline-none bg-white"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 text-sm text-slate-700">
+          <Heart className="w-4 h-4 text-[#087E83]" />
+          <span>
+            Donating <strong>{formatMoney(Number.isFinite(donationAmount) ? donationAmount : 0, currency)}</strong> via PayPal sandbox
+          </span>
+        </div>
+
+        <PayPalDonateButtons campaign={campaign} amount={donationAmount} onDonated={handleDonated} />
 
         {donated && (
           <div className="bg-emerald-100 border border-emerald-300 rounded-lg p-4 flex gap-3">
             <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-emerald-900 text-sm">Thank you for your donation!</p>
-              <p className="text-sm text-emerald-800">Your contribution will help families in need. You'll receive updates on the campaign's impact.</p>
+              <p className="text-sm text-emerald-800">
+                {formatMoney(donated.amount, donated.currency)} was captured by PayPal
+                {donated.paypalCaptureId ? <> (capture <span className="font-mono">{donated.paypalCaptureId}</span>)</> : null}.
+                Your contribution will help families in need.
+              </p>
             </div>
           </div>
         )}

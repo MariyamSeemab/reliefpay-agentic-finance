@@ -49,7 +49,7 @@ export default function SignupPage() {
     }
 
     try {
-      await signup(name, email, role);
+      await signup(name, email, password, role);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message || 'Signup failed');

@@ -66,7 +66,7 @@ export default function App() {
           <Route
             path="/admin/applications"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRoles={['ADMIN', 'REVIEWER']}>
                 <ApplicationManagementPage />
               </ProtectedRoute>
             }
@@ -75,7 +75,7 @@ export default function App() {
           <Route
             path="/admin/ai-verification"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRoles={['ADMIN', 'REVIEWER']}>
                 <AIVerificationPage />
               </ProtectedRoute>
             }
@@ -84,7 +84,7 @@ export default function App() {
           <Route
             path="/admin/ai-command-centre"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRoles={['ADMIN']}>
                 <AICommandCentrePage />
               </ProtectedRoute>
             }
@@ -93,7 +93,7 @@ export default function App() {
           <Route
             path="/admin/payment-agent"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRoles={['ADMIN']}>
                 <PaymentAgentPage />
               </ProtectedRoute>
             }

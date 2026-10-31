@@ -37,7 +37,8 @@ export function createApp({ db, config, paypal = null, groq = null }) {
   if (fs.existsSync(indexFile)) {
     app.use(express.static(config.staticDir));
     app.use((req, res, next) =>
-      req.method === 'GET' && !req.path.startsWith('/api') ? res.sendFile(indexFile) : next(),
+      // `root` keeps send's dotfile check off the absolute path (e.g. a checkout under .worktrees/).
+      req.method === 'GET' && !req.path.startsWith('/api') ? res.sendFile('index.html', { root: config.staticDir }) : next(),
     );
   }
 

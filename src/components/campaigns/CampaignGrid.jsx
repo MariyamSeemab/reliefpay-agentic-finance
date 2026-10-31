@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Heart, MapPin, Users, Calendar, TrendingUp } from 'lucide-react';
+import { formatMoney } from '../../lib/money';
 
 export const CampaignGrid = ({ campaigns, onSelectCampaign }) => {
   const [filter, setFilter] = useState('ALL');
@@ -80,11 +81,11 @@ export const CampaignGrid = ({ campaigns, onSelectCampaign }) => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-xs text-slate-600 mb-1">Raised</p>
-                    <p className="font-bold text-slate-900">₹{campaign.raisedAmount.toLocaleString()}</p>
+                    <p className="font-bold text-slate-900">{formatMoney(campaign.raisedAmount, campaign.currency)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-600 mb-1">Remaining</p>
-                    <p className="font-bold text-slate-900">₹{remainingAmount.toLocaleString()}</p>
+                    <p className="font-bold text-slate-900">{formatMoney(remainingAmount, campaign.currency)}</p>
                   </div>
                 </div>
 

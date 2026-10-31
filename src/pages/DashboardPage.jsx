@@ -11,7 +11,7 @@ import { INITIAL_CAMPAIGNS, INITIAL_APPLICATIONS, INITIAL_TRANSACTIONS } from '.
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  const { currentUser, logout, switchRole } = useAuth();
+  const { currentUser, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [campaigns, setCampaigns] = useState(INITIAL_CAMPAIGNS);
