@@ -1,3 +1,4 @@
+import { createGroqClient } from './ai/groqClient.js';
 import { createApp } from './app.js';
 import { readConfig } from './config.js';
 import { openDb } from './db/index.js';
@@ -16,8 +17,10 @@ const paypal = createPayPalClient(config.paypal);
 if (!paypal.isConfigured) {
   console.warn('[paypal] PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET not set; PayPal endpoints return 503');
 }
-// FEAT-003 replaces this with the real Groq client.
-const groq = null;
+const groq = createGroqClient(config.groq);
+if (!groq.isConfigured) {
+  console.warn('[groq] GROQ_API_KEY not set; POST /api/ai/chat returns 503');
+}
 
 const app = createApp({ db, config, paypal, groq });
 app.listen(config.port, () => {

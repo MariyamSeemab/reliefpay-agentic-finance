@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
+import { aiRouter } from './routes/ai.js';
 import { applicationsRouter } from './routes/applications.js';
 import { auditRouter } from './routes/audit.js';
 import { authRouter } from './routes/auth.js';
@@ -26,7 +27,7 @@ export function createApp({ db, config, paypal = null, groq = null }) {
   app.use('/api', donationsRouter(deps));
   app.use('/api', payoutsRouter(deps));
   app.use('/api', webhooksRouter(deps));
-  // FEAT-003 mount point: ai router.
+  app.use('/api', aiRouter(deps));
 
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'NOT_FOUND' });
