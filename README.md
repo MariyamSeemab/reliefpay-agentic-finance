@@ -13,6 +13,18 @@ ReliefPay is a disaster-relief platform where donors fund campaigns through PayP
 
 Wired to the API: login/signup, campaigns and donations, AI Command Centre, Payment Agent, application management, and the auditor's audit log. Still showing mock data: the dashboards (except the auditor audit log), AI verification, beneficiary registration and emergency application, and the map.
 
+## Screenshots
+
+Captured with Playwright against a local run (`npm run build` then `npm start --prefix backend`) using PayPal sandbox and Groq credentials.
+
+| Landing page | Admin dashboard |
+|---|---|
+| ![Landing page](docs/screenshots/01-home.png) | ![Admin dashboard](docs/screenshots/03-admin-dashboard.png) |
+| **AI Command Centre (live Groq tool call)** | **Payment Agent (draft batch awaiting authorization)** |
+| ![AI Command Centre](docs/screenshots/04-ai-command-centre-groq.png) | ![Payment Agent](docs/screenshots/05-payment-agent.png) |
+| **Campaigns (USD, from the API)** | **Login with demo accounts** |
+| ![Campaigns](docs/screenshots/06-campaigns.png) | ![Login](docs/screenshots/02-login.png) |
+
 ## Architecture
 
 ```
