@@ -1,3 +1,5 @@
+> For the full-stack setup (API, PayPal sandbox, Groq) see the root README.md.
+
 # ReliefPay - Quick Start Checklist
 
 ## 🚀 Get Running in 2 Minutes

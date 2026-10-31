@@ -1,14 +1,20 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Search, Filter, ChevronRight, Eye, CheckCircle, XCircle, AlertTriangle, Clock } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
-import { INITIAL_APPLICATIONS } from '../data/mockData';
+import { apiFetch } from '../lib/api';
+import { formatMoney } from '../lib/money';
 
 export default function ApplicationManagementPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const [applications, setApplications] = useState(INITIAL_APPLICATIONS);
+  const [applications, setApplications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
@@ -17,6 +23,19 @@ export default function ApplicationManagementPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [actionModal, setActionModal] = useState(null);
   const [remarks, setRemarks] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch('/applications')
+      .then(({ applications: list }) => { if (!cancelled) setApplications(list); })
+      .catch((err) => { if (!cancelled) setLoadError(err.message || 'Could not load applications'); })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    setActionError('');
+  }, [actionModal]);
 
   const filteredApplications = useMemo(() => {
     return applications.filter(app => {
@@ -64,31 +83,34 @@ export default function ApplicationManagementPage() {
     return `px-2.5 py-1 rounded-full text-xs font-semibold ${styles[priority] || styles.NORMAL}`;
   };
 
-  const handleApprove = (app) => {
-    setApplications(prev => 
-      prev.map(a => a.id === app.id 
-        ? { ...a, status: 'APPROVED', approvedAmount: a.requestedAmount }
-        : a
-      )
-    );
-    setShowDetails(false);
-    setActionModal(null);
+  // PATCH the status on the server and replace the row with its response.
+  const updateStatus = async (app, body) => {
+    setIsSaving(true);
+    setActionError('');
+    try {
+      const { application } = await apiFetch(`/applications/${encodeURIComponent(app.id)}/status`, {
+        method: 'PATCH',
+        body,
+      });
+      setApplications(prev => prev.map(a => (a.id === application.id ? application : a)));
+      setRemarks('');
+      setShowDetails(false);
+      setActionModal(null);
+    } catch (err) {
+      setActionError(err.message || 'Could not update the application');
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  const handleApprove = (app) => updateStatus(app, { status: 'APPROVED' });
 
   const handleReject = (app) => {
     if (!remarks.trim()) {
       alert('Please provide remarks for rejection');
       return;
     }
-    setApplications(prev => 
-      prev.map(a => a.id === app.id 
-        ? { ...a, status: 'REJECTED', rejectionReason: remarks }
-        : a
-      )
-    );
-    setRemarks('');
-    setShowDetails(false);
-    setActionModal(null);
+    updateStatus(app, { status: 'REJECTED', remarks });
   };
 
   const handleRequestDocuments = (app) => {
@@ -96,15 +118,7 @@ export default function ApplicationManagementPage() {
       alert('Please specify what documents are needed');
       return;
     }
-    setApplications(prev => 
-      prev.map(a => a.id === app.id 
-        ? { ...a, status: 'DOCUMENT_REQUESTED', documentRequest: remarks }
-        : a
-      )
-    );
-    setRemarks('');
-    setShowDetails(false);
-    setActionModal(null);
+    updateStatus(app, { status: 'DOCUMENT_REQUESTED', remarks });
   };
 
   if (showDetails && selectedApp) {
@@ -142,11 +156,11 @@ export default function ApplicationManagementPage() {
               </div>
               <div className="text-right">
                 <p className="text-sm text-slate-600 mb-1">Requested Amount</p>
-                <p className="text-2xl font-bold text-slate-900">₹{selectedApp.requestedAmount.toLocaleString('en-IN')}</p>
+                <p className="text-2xl font-bold text-slate-900">{formatMoney(selectedApp.requestedAmount, selectedApp.currency)}</p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-slate-600 mb-1">Approved Amount</p>
-                <p className="text-2xl font-bold text-emerald-600">₹{(selectedApp.approvedAmount || 0).toLocaleString('en-IN')}</p>
+                <p className="text-2xl font-bold text-emerald-600">{formatMoney(selectedApp.approvedAmount || 0, selectedApp.currency)}</p>
               </div>
             </div>
           </div>
@@ -300,7 +314,7 @@ export default function ApplicationManagementPage() {
                 {selectedApp.status === 'APPROVED' && (
                   <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-900">
                     <p className="font-semibold">Application Approved</p>
-                    <p className="mt-1">Approved Amount: ₹{selectedApp.approvedAmount.toLocaleString('en-IN')}</p>
+                    <p className="mt-1">Approved Amount: {formatMoney(selectedApp.approvedAmount, selectedApp.currency)}</p>
                   </div>
                 )}
 
@@ -343,10 +357,17 @@ export default function ApplicationManagementPage() {
                   {actionModal === 'documents' && 'Request Additional Documents'}
                 </h3>
 
+                {actionError && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    {actionError}
+                  </div>
+                )}
+                {isSaving && <p className="mb-4 text-sm text-slate-600">Saving…</p>}
+
                 {actionModal === 'approve' && (
                   <div>
                     <p className="text-slate-600 mb-4">
-                      Approve ₹{selectedApp.requestedAmount.toLocaleString('en-IN')} for {selectedApp.beneficiaryName}?
+                      Approve {formatMoney(selectedApp.requestedAmount, selectedApp.currency)} for {selectedApp.beneficiaryName}?
                     </p>
                     <div className="flex gap-3">
                       <button
@@ -357,6 +378,7 @@ export default function ApplicationManagementPage() {
                       </button>
                       <button
                         onClick={() => handleApprove(selectedApp)}
+                        disabled={isSaving}
                         className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
                       >
                         Approve
@@ -386,6 +408,7 @@ export default function ApplicationManagementPage() {
                       </button>
                       <button
                         onClick={() => handleReject(selectedApp)}
+                        disabled={isSaving}
                         className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
                       >
                         Reject
@@ -415,6 +438,7 @@ export default function ApplicationManagementPage() {
                       </button>
                       <button
                         onClick={() => handleRequestDocuments(selectedApp)}
+                        disabled={isSaving}
                         className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition"
                       >
                         Send Request
@@ -505,7 +529,15 @@ export default function ApplicationManagementPage() {
 
         {/* Applications List */}
         <div className="space-y-4">
-          {filteredApplications.length === 0 ? (
+          {isLoading ? (
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
+              <p className="text-slate-600">Loading applications…</p>
+            </div>
+          ) : loadError ? (
+            <div className="bg-white rounded-lg shadow-sm border border-red-200 p-12 text-center">
+              <p className="text-red-700">{loadError}</p>
+            </div>
+          ) : filteredApplications.length === 0 ? (
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
               <p className="text-slate-600">No applications found matching your criteria</p>
             </div>
@@ -539,7 +571,7 @@ export default function ApplicationManagementPage() {
 
                   <div className="text-right mr-6">
                     <p className="text-sm text-slate-600 mb-1">Requested</p>
-                    <p className="text-xl font-bold text-slate-900">₹{app.requestedAmount.toLocaleString('en-IN')}</p>
+                    <p className="text-xl font-bold text-slate-900">{formatMoney(app.requestedAmount, app.currency)}</p>
                   </div>
 
                   <button

@@ -4,6 +4,7 @@ import { LaunchCampaignModal } from '../campaigns/LaunchCampaignModal';
 import { ProgressChart } from '../charts/ProgressChart';
 import { SimpleBarChart } from '../charts/SimpleBarChart';
 import { PieChart } from '../charts/PieChart';
+import { formatMoney } from '../../lib/money';
 
 export const AdminDashboard = ({ campaigns, applications, transactions, setActiveTab }) => {
   const [showCampaignModal, setShowCampaignModal] = useState(false);
@@ -32,6 +33,7 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
   const totalDisbursed = campaigns.reduce((sum, c) => sum + c.disbursedAmount, 0);
   const pendingApplications = applications.filter(a => a.status === 'UNDER_REVIEW').length;
   const approvedApplications = applications.filter(a => a.status === 'APPROVED').length;
+  const currency = campaigns[0]?.currency || 'USD';
 
   // Chart data
   const applicationStatusData = [
@@ -42,14 +44,14 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
 
   const campaignPerformanceData = campaigns.map(c => ({
     label: c.title.substring(0, 12),
-    value: Math.round((c.raisedAmount / c.targetAmount) * 100),
+    value: c.targetAmount ? Math.round((c.raisedAmount / c.targetAmount) * 100) : 0,
     color: '#087E83',
   }));
 
   const fundingData = [
-    { label: 'Raised', value: totalRaised / 10000, color: '#10b981' },
-    { label: 'Disbursed', value: totalDisbursed / 10000, color: '#3b82f6' },
-    { label: 'Pending', value: (totalRaised - totalDisbursed) / 10000, color: '#f59e0b' },
+    { label: 'Raised', value: totalRaised, color: '#10b981' },
+    { label: 'Disbursed', value: totalDisbursed, color: '#3b82f6' },
+    { label: 'Pending', value: Math.max(totalRaised - totalDisbursed, 0), color: '#f59e0b' },
   ];
 
   const handleLaunchCampaign = (newCampaign) => {
@@ -91,7 +93,7 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <p className="text-xs text-slate-600 mb-2 font-semibold">Total Raised</p>
-          <p className="text-3xl font-bold text-slate-900">₹{(totalRaised / 10000000).toFixed(1)}Cr</p>
+          <p className="text-3xl font-bold text-slate-900">{formatMoney(totalRaised, currency)}</p>
           <p className="text-xs text-blue-600 mt-2">Across all campaigns</p>
         </div>
 
@@ -103,7 +105,7 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <p className="text-xs text-slate-600 mb-2 font-semibold">Total Disbursed</p>
-          <p className="text-3xl font-bold text-slate-900">₹{(totalDisbursed / 10000000).toFixed(1)}Cr</p>
+          <p className="text-3xl font-bold text-slate-900">{formatMoney(totalDisbursed, currency)}</p>
           <p className="text-xs text-emerald-600 mt-2">To beneficiaries</p>
         </div>
       </div>
@@ -134,7 +136,7 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
                     className="h-full"
                     style={{
                       backgroundColor: item.color,
-                      width: `${(item.value / applications.length) * 100}%`,
+                      width: `${applications.length ? (item.value / applications.length) * 100 : 0}%`,
                     }}
                   ></div>
                 </div>
@@ -157,7 +159,7 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
                 <p className="text-sm text-slate-600">{app.area} • {app.submittedAt}</p>
               </div>
               <div className="flex items-center gap-4">
-                <p className="font-bold text-slate-900">₹{app.requestedAmount.toLocaleString()}</p>
+                <p className="font-bold text-slate-900">{formatMoney(app.requestedAmount, app.currency)}</p>
                 <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${getStatusColor(app.status)}`}>
                   {getStatusIcon(app.status)}
                   <span className="text-sm font-semibold">{app.status.replace('_', ' ')}</span>

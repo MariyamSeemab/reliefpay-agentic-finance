@@ -3,7 +3,7 @@ import { TrendingUp, Users, Target, Clock, ArrowUp } from 'lucide-react';
 
 export const StatsSection = () => {
   const stats = [
-    { icon: TrendingUp, label: 'Total Distributed', value: '₹5.2 Crores', change: '+23% this month', color: 'emerald' },
+    { icon: TrendingUp, label: 'Total Distributed', value: '$620K', change: '+23% this month', color: 'emerald' },
     { icon: Users, label: 'Active Beneficiaries', value: '1,240+', change: '+156 this week', color: 'blue' },
     { icon: Target, label: 'Verification Rate', value: '98.5%', change: 'Highly accurate', color: 'purple' },
     { icon: Clock, label: 'Avg Payout Time', value: '2.3 hrs', change: 'Faster than bank transfers', color: 'orange' },

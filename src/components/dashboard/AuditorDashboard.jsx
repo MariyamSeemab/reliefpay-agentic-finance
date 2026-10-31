@@ -1,16 +1,47 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Shield, TrendingUp, AlertTriangle, CheckCircle2, Download, Filter } from 'lucide-react';
-import { INITIAL_AUDIT_LOGS, INITIAL_TRANSACTIONS } from '../../data/mockData';
+import { apiFetch } from '../../lib/api';
+import { formatMoney } from '../../lib/money';
+
+const MAX_FILTERS = 8;
 
 export const AuditorDashboard = ({ currentUser }) => {
-  const [auditLogs] = useState(INITIAL_AUDIT_LOGS);
-  const [transactions] = useState(INITIAL_TRANSACTIONS);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [logsError, setLogsError] = useState('');
+  const [transactions, setTransactions] = useState([]);
+  const [currency, setCurrency] = useState('USD');
   const [filterType, setFilterType] = useState('ALL');
+
+  useEffect(() => {
+    let cancelled = false;
+    // One transaction per payout item across all payout batches.
+    apiFetch('/payouts')
+      .then(({ batches }) => {
+        if (cancelled) return;
+        setTransactions(batches.flatMap((b) => b.items));
+        if (batches[0]?.currency) setCurrency(batches[0].currency);
+      })
+      .catch(() => { if (!cancelled) setTransactions([]); });
+    apiFetch('/audit-logs')
+      .then(({ logs }) => { if (!cancelled) setAuditLogs(logs); })
+      .catch((err) => { if (!cancelled) setLogsError(err.message || 'Could not load the audit log'); })
+      .finally(() => { if (!cancelled) setLogsLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // ALL plus the most frequent actions, capped so the tab row stays readable.
+  const filterTypes = useMemo(() => {
+    const counts = {};
+    auditLogs.forEach((l) => { counts[l.action] = (counts[l.action] || 0) + 1; });
+    const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, MAX_FILTERS);
+    return ['ALL', ...top];
+  }, [auditLogs]);
 
   const verifiedCount = auditLogs.filter(l => l.status === 'VERIFIED').length;
   const recordedCount = auditLogs.filter(l => l.status === 'RECORDED').length;
   const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0);
-  const completedTransactions = transactions.filter(t => t.status === 'COMPLETED').length;
+  const completedTransactions = transactions.filter(t => t.status === 'SUCCESS').length;
 
   const filteredLogs = filterType === 'ALL' ? auditLogs : auditLogs.filter(l => l.action === filterType);
 
@@ -39,7 +70,7 @@ export const AuditorDashboard = ({ currentUser }) => {
             <span className="text-xs font-semibold bg-blue-50 text-blue-700 px-2 py-1 rounded">Verified</span>
           </div>
           <p className="text-xs text-slate-600 mb-1">Total Transactions</p>
-          <p className="text-2xl font-bold text-slate-900">₹{totalAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-slate-900">{formatMoney(totalAmount, currency)}</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -79,7 +110,7 @@ export const AuditorDashboard = ({ currentUser }) => {
 
         {/* Filter Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {['ALL', 'APPROVED_GRANT', 'INITIATED_DISBURSEMENT', 'SUBMITTED_APPLICATION'].map((type) => (
+          {filterTypes.map((type) => (
             <button
               key={type}
               onClick={() => setFilterType(type)}
@@ -107,6 +138,13 @@ export const AuditorDashboard = ({ currentUser }) => {
               </tr>
             </thead>
             <tbody>
+              {(logsLoading || logsError) && (
+                <tr>
+                  <td colSpan={5} className={`py-6 px-4 text-center text-sm ${logsError ? 'text-red-700' : 'text-slate-600'}`}>
+                    {logsError || 'Loading audit log…'}
+                  </td>
+                </tr>
+              )}
               {filteredLogs.map((log) => (
                 <tr key={log.id} className="border-b border-slate-200 hover:bg-slate-50 transition">
                   <td className="py-3 px-4">
@@ -119,13 +157,15 @@ export const AuditorDashboard = ({ currentUser }) => {
                     <p className="text-slate-600 font-mono text-xs">{log.target}</p>
                   </td>
                   <td className="py-3 px-4">
-                    <p className="text-slate-600 text-xs">{log.timestamp}</p>
+                    <p className="text-slate-600 text-xs">{new Date(log.timestamp).toLocaleString()}</p>
                   </td>
                   <td className="py-3 px-4">
                     <span className={`inline-block px-2 py-1 rounded text-xs font-semibold ${
                       log.status === 'VERIFIED'
                         ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-blue-50 text-blue-700'
+                        : log.status === 'REJECTED' || log.status === 'FAILED'
+                          ? 'bg-red-50 text-red-700'
+                          : 'bg-blue-50 text-blue-700'
                     }`}>
                       {log.status}
                     </span>

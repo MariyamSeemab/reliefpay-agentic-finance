@@ -68,7 +68,7 @@ export const HeroSection = ({ onExploreClick, onApplyClick }) => {
             {/* Quick Stats */}
             <div className="grid grid-cols-3 gap-4 pt-4">
               <div>
-                <div className="text-xl sm:text-2xl font-bold text-emerald-300">₹5.2Cr</div>
+                <div className="text-xl sm:text-2xl font-bold text-emerald-300">$620K</div>
                 <p className="text-xs sm:text-sm text-slate-200 mt-0.5">Distributed to Beneficiaries</p>
               </div>
               <div>

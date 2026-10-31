@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { FileText, Clock, CheckCircle, AlertCircle, Download, MessageCircle } from 'lucide-react';
 import { INITIAL_APPLICATIONS } from '../../data/mockData';
+import { formatMoney } from '../../lib/money';
 
 export const BeneficiaryDashboard = ({ currentUser }) => {
   const [applications] = useState(INITIAL_APPLICATIONS);
@@ -38,13 +39,13 @@ export const BeneficiaryDashboard = ({ currentUser }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <p className="text-xs text-slate-600 mb-2 font-semibold">Total Requested</p>
-          <p className="text-2xl font-bold text-slate-900">₹{totalRequested.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-slate-900">{formatMoney(totalRequested)}</p>
           <p className="text-xs text-slate-500 mt-2">{userApplications.length} application(s)</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <p className="text-xs text-slate-600 mb-2 font-semibold">Approved Amount</p>
-          <p className="text-2xl font-bold text-emerald-600">₹{approvedAmount.toLocaleString()}</p>
+          <p className="text-2xl font-bold text-emerald-600">{formatMoney(approvedAmount)}</p>
           <p className="text-xs text-emerald-600 mt-2">Ready for disbursement</p>
         </div>
 
@@ -89,11 +90,11 @@ export const BeneficiaryDashboard = ({ currentUser }) => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <p className="text-xs text-slate-500">Requested</p>
-                      <p className="font-bold text-slate-900">₹{app.requestedAmount.toLocaleString()}</p>
+                      <p className="font-bold text-slate-900">{formatMoney(app.requestedAmount)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Approved</p>
-                      <p className="font-bold text-emerald-600">₹{app.approvedAmount.toLocaleString()}</p>
+                      <p className="font-bold text-emerald-600">{formatMoney(app.approvedAmount)}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Priority</p>

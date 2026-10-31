@@ -23,7 +23,7 @@ export const FAQSection = () => {
     },
     {
       question: 'What payment methods do you accept?',
-      answer: 'We accept bank transfers, digital wallets (UPI, NEFT), credit/debit cards, and corporate donations. All transactions are secure and verified.'
+      answer: 'We accept PayPal, credit/debit cards through PayPal checkout, and corporate donations, all in US dollars (USD). All transactions are secure and verified.'
     },
     {
       question: 'How can I volunteer with ReliefPay?',

@@ -1,9 +1,11 @@
 import React from 'react';
+import { formatMoney } from '../../lib/money';
 
 export const ProgressChart = ({ campaigns, title }) => {
   const totalTarget = campaigns.reduce((sum, c) => sum + c.targetAmount, 0);
   const totalRaised = campaigns.reduce((sum, c) => sum + c.raisedAmount, 0);
-  const percentage = Math.round((totalRaised / totalTarget) * 100);
+  const percentage = totalTarget ? Math.round((totalRaised / totalTarget) * 100) : 0;
+  const currency = campaigns[0]?.currency || 'USD';
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
@@ -23,8 +25,8 @@ export const ProgressChart = ({ campaigns, title }) => {
             ></div>
           </div>
           <div className="flex justify-between mt-2 text-xs text-slate-600 font-semibold">
-            <span>₹{totalRaised.toLocaleString()}</span>
-            <span>₹{totalTarget.toLocaleString()}</span>
+            <span>{formatMoney(totalRaised, currency)}</span>
+            <span>{formatMoney(totalTarget, currency)}</span>
           </div>
         </div>
 
@@ -32,7 +34,7 @@ export const ProgressChart = ({ campaigns, title }) => {
         <div className="space-y-4">
           <h4 className="text-sm font-semibold text-slate-900">Campaign Breakdown</h4>
           {campaigns.map((campaign) => {
-            const campPercentage = Math.round((campaign.raisedAmount / campaign.targetAmount) * 100);
+            const campPercentage = campaign.targetAmount ? Math.round((campaign.raisedAmount / campaign.targetAmount) * 100) : 0;
             return (
               <div key={campaign.id}>
                 <div className="flex items-center justify-between mb-1.5">

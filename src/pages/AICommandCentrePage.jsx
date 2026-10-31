@@ -1,13 +1,29 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Send, Zap, Loader, CheckCircle, AlertCircle, TrendingUp, MessageSquare, Target, DollarSign } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
+import { Markdown } from '../components/common/Markdown';
+import { apiFetch } from '../lib/api';
+import { formatMoney } from '../lib/money';
+
+const MAX_HISTORY = 12;
+const MAX_CONTENT = 2000;
+
+const AI_ERROR_MESSAGES = {
+  AI_NOT_CONFIGURED: 'The AI agent is not configured on the server (GROQ_API_KEY is missing).',
+  AI_RATE_LIMITED: 'The Groq free tier rate limit was reached. Wait a moment and try again.',
+  AI_ERROR: 'The AI service returned an error. Please try again.',
+  INVALID_MESSAGES: 'The message could not be sent. Keep it under 2000 characters.',
+};
 
 export default function AICommandCentrePage() {
+  const navigate = useNavigate();
+  const nextId = useRef(2);
   const [messages, setMessages] = useState([
     {
       id: 1,
       type: 'system',
-      text: 'ReliefPay AI Command Centre initialized. I can help you with relief operations, fund allocation, beneficiary verification, payment processing, and reporting. What would you like to do?',
+      text: 'ReliefPay AI Command Centre initialized. I can look up campaigns, applications and payout batches, and draft payout batches for approved applications. Releasing money always requires your authorization code on the Payment Agent page.',
       timestamp: new Date()
     }
   ]);
@@ -23,109 +39,61 @@ export default function AICommandCentrePage() {
   ]);
 
   const suggestedPrompts = [
+    'Which campaigns have the least funds available?',
     'Show all critical applications awaiting review',
-    'Prepare a disbursement plan for remaining campaign budget',
-    'Find campaigns with insufficient funding',
-    'Identify failed payments from yesterday',
-    'Generate a report of completed beneficiary payments',
-    'Find volunteers available for tomorrow'
+    'List approved applications for cmp-01',
+    'Draft a payout batch for approved applications in cmp-01',
+    'Show the status of recent payout batches',
+    'How much has been raised across all campaigns?'
   ];
 
-  const handleSendMessage = async (text) => {
-    if (!text.trim()) return;
+  const newId = () => nextId.current++;
 
-    // Add user message
+  const handleSendMessage = async (text) => {
+    if (!text.trim() || isLoading) return;
+
     const userMessage = {
-      id: messages.length + 1,
+      id: newId(),
       type: 'user',
-      text: text,
+      text: text.trim(),
       timestamp: new Date()
     };
+    const history = [...messages, userMessage]
+      .filter((m) => (m.type === 'user' || m.type === 'agent') && m.text)
+      .slice(-MAX_HISTORY)
+      .map((m) => ({ role: m.type === 'user' ? 'user' : 'assistant', content: m.text.slice(0, MAX_CONTENT) }));
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response delay
-    setTimeout(() => {
-      const aiResponse = generateAIResponse(text);
-      setMessages(prev => [...prev, aiResponse]);
+    try {
+      const res = await apiFetch('/ai/chat', { method: 'POST', body: { messages: history } });
+      const drafted = res.draftedBatches || [];
+      setMessages(prev => [...prev, {
+        id: newId(),
+        type: 'agent',
+        title: 'ReliefPay Agent',
+        text: res.reply || '(no reply)',
+        steps: res.steps || [],
+        model: res.model,
+        action: drafted.length > 0 ? 'REVIEW_PAYOUT' : null,
+        summary: drafted
+          .map((b) => `Drafted batch ${b.id} for ${formatMoney(b.total, b.currency)}. Release requires your authorization code.`)
+          .join(' '),
+        timestamp: new Date()
+      }]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        id: newId(),
+        type: 'system',
+        isError: true,
+        text: AI_ERROR_MESSAGES[err.code] || err.message || 'The AI agent could not answer.',
+        timestamp: new Date()
+      }]);
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  };
-
-  const generateAIResponse = (prompt) => {
-    const responses = {
-      'critical applications': {
-        type: 'data',
-        title: 'Critical Applications Awaiting Review',
-        data: [
-          { id: 'RPA-2026-0001', beneficiary: 'Rahim Shaikh', amount: '₹20,000', priority: 'CRITICAL', location: 'Mumbra' },
-          { id: 'RPA-2026-0003', beneficiary: 'Priya Nair', amount: '₹18,500', priority: 'CRITICAL', location: 'Wayanad' },
-          { id: 'RPA-2026-0005', beneficiary: 'Ajay Kumar', amount: '₹22,000', priority: 'CRITICAL', location: 'Assam' }
-        ]
-      },
-      'disbursement plan': {
-        type: 'action',
-        title: 'Disbursement Plan Generated',
-        action: 'REVIEW_PAYOUT',
-        summary: 'I\'ve analyzed the remaining campaign budget and identified 5 eligible beneficiaries. Total payout: ₹87,500. Would you like me to prepare payment details?'
-      },
-      'insufficient funding': {
-        type: 'data',
-        title: 'Campaigns with Funding Gaps',
-        data: [
-          { campaign: 'Kerala Flash Floods', target: '₹12,00,000', collected: '₹9,50,000', gap: '₹2,50,000', progress: '79%' },
-          { campaign: 'Assam Relief Fund', target: '₹8,00,000', collected: '₹5,20,000', gap: '₹2,80,000', progress: '65%' }
-        ]
-      },
-      'failed payments': {
-        type: 'data',
-        title: 'Failed Payments (Last 24 Hours)',
-        data: [
-          { txnId: 'TXN-880203', beneficiary: 'Vikram Singh', amount: '₹15,000', reason: 'Invalid bank account', status: 'RETRY_NEEDED' },
-          { txnId: 'TXN-880204', beneficiary: 'Anjali Devi', amount: '₹12,000', reason: 'Account blocked', status: 'ESCALATE' }
-        ]
-      },
-      'completed payments': {
-        type: 'data',
-        title: 'Completed Beneficiary Payments',
-        data: [
-          { txnId: 'TXN-880192', beneficiary: 'Rahim Shaikh', amount: '₹20,000', date: '2026-10-26', campaign: 'Mumbra Relief' },
-          { txnId: 'TXN-880195', beneficiary: 'Rajesh Patel', amount: '₹18,000', date: '2026-10-27', campaign: 'Kerala Relief' }
-        ]
-      },
-      'volunteers available': {
-        type: 'data',
-        title: 'Volunteers Available Tomorrow',
-        data: [
-          { name: 'Vikram Singh', specialization: 'Field Assessment', location: 'Mumbra', availability: 'Full Day' },
-          { name: 'Sarah Jenkins', specialization: 'Document Verification', location: 'Remote', availability: '4 Hours' },
-          { name: 'Pradeep Kumar', specialization: 'Field Assessment', location: 'Wayanad', availability: 'Full Day' }
-        ]
-      }
-    };
-
-    let response = null;
-    for (const [key, value] of Object.entries(responses)) {
-      if (prompt.toLowerCase().includes(key)) {
-        response = value;
-        break;
-      }
     }
-
-    if (!response) {
-      response = {
-        type: 'text',
-        text: 'I understand you\'re asking about ' + prompt + '. Let me analyze the current data and prepare a comprehensive report for you.'
-      };
-    }
-
-    return {
-      id: Date.now(),
-      type: 'agent',
-      ...response,
-      timestamp: new Date()
-    };
   };
 
   return (
@@ -215,7 +183,14 @@ export default function AICommandCentrePage() {
                 ) : (
                   <div className="max-w-2xl bg-slate-700 border border-slate-600 rounded-lg p-4 rounded-tl-none">
                     {msg.type === 'system' && (
-                      <p className="text-slate-200">{msg.text}</p>
+                      msg.isError ? (
+                        <div className="flex gap-2 text-red-300">
+                          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-1" />
+                          <p>{msg.text}</p>
+                        </div>
+                      ) : (
+                        <p className="text-slate-200">{msg.text}</p>
+                      )
                     )}
 
                     {msg.type === 'agent' && (
@@ -223,9 +198,27 @@ export default function AICommandCentrePage() {
                         <div className="flex items-center gap-2 mb-3">
                           <Zap className="w-4 h-4 text-yellow-400" />
                           <p className="font-semibold">{msg.title}</p>
+                          {msg.model && <span className="text-xs text-slate-400 font-mono">{msg.model}</span>}
                         </div>
 
-                        {msg.text && <p className="text-slate-300 mb-3">{msg.text}</p>}
+                        {msg.text && <Markdown text={msg.text} className="text-slate-300 mb-3" />}
+
+                        {msg.steps?.length > 0 && (
+                          <div className="space-y-1">
+                            {msg.steps.map((step, i) => (
+                              <p
+                                key={i}
+                                className={`font-mono text-xs px-2 py-1 rounded bg-slate-800 border border-slate-600 ${
+                                  step.ok ? 'text-slate-300' : 'text-red-300'
+                                }`}
+                              >
+                                {step.tool} → {step.summary}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        {msg.summary && <p className="text-emerald-300 text-sm">{msg.summary}</p>}
 
                         {msg.data && (
                           <div className="space-y-2">
@@ -245,7 +238,10 @@ export default function AICommandCentrePage() {
                         )}
 
                         {msg.action === 'REVIEW_PAYOUT' && (
-                          <button className="w-full bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded font-medium text-sm transition mt-3">
+                          <button
+                            onClick={() => navigate('/admin/payment-agent')}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded font-medium text-sm transition mt-3"
+                          >
                             Review & Authorize Payout
                           </button>
                         )}

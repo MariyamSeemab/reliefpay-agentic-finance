@@ -1,0 +1,24 @@
+{
+  "name": "reliefpay-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ReliefPay API: Express 5 + node:sqlite, PayPal sandbox and Groq integrations",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "seed:reset": "node --env-file-if-exists=.env --disable-warning=ExperimentalWarning src/db/reset.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.0"
+  }
+}

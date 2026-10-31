@@ -119,16 +119,16 @@ export const LaunchCampaignModal = ({ isOpen, onClose, onLaunch }) => {
           <div>
             <label className="block text-sm font-semibold text-slate-900 mb-2 flex items-center gap-2">
               <Target className="w-4 h-4" />
-              Target Amount (₹)
+              Target Amount (USD)
             </label>
             <input
               type="number"
               name="targetAmount"
               value={formData.targetAmount}
               onChange={handleChange}
-              placeholder="500000"
-              min="10000"
-              step="10000"
+              placeholder="5000"
+              min="100"
+              step="100"
               className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#087E83] focus:border-transparent outline-none"
               required
             />

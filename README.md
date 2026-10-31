@@ -1,964 +1,196 @@
-# ReliefPay - AI-Powered Emergency Relief Finance Platform
+# ReliefPay Agentic Finance
 
-![ReliefPay Logo](./imgs/logo.png)
+ReliefPay is a disaster-relief platform where donors fund campaigns through PayPal Checkout and administrators pay approved beneficiaries through PayPal Payouts. A Groq-powered AI agent reads the live case and funding data and drafts payout batches, but only a human admin with a server-side authorization code can release money.
 
-> An agentic AI platform for disaster relief organizations to coordinate aid distribution through conversational AI with human-authorized payments.
+## Features
 
----
+- **Donations with PayPal Checkout.** Logged-in users donate to a campaign with the PayPal JS SDK Buttons. The API creates and captures a PayPal Orders v2 order, and the campaign progress bar updates from the captured amount.
+- **Admin-authorized PayPal Payouts.** Payout batches for approved applications are released with PayPal Payouts v1 only after an admin enters the payout authorization code. Status is refreshed from PayPal by webhook or by the "Refresh status from PayPal" button.
+- **Signature-verified webhooks.** `POST /api/webhooks/paypal` verifies every event with PayPal's verify-webhook-signature API before it updates donations or payouts, and ignores duplicates.
+- **Audit log.** Every state change (logins, donations, application decisions, AI chats and tool calls, payout drafts, releases, failed authorization attempts, webhook updates) is written to an audit log that auditors can read.
+- **AI agent on Groq.** In the AI Command Centre an admin chats with an agent that calls local tools to read campaigns, applications, donations and payout batches, and can draft a payout batch. It has no tool that releases money.
+- **Role-based access for 6 roles:** Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor.
 
-## 🎯 Quick Navigation
+Wired to the API: login/signup, campaigns and donations, the admin dashboard totals and charts, AI Command Centre, Payment Agent, application management, and the auditor dashboard and audit log. The donor dashboard mixes API data with sample data. Still showing mock data: the beneficiary and volunteer dashboards, AI verification, beneficiary registration and emergency application, and the map.
 
-### For Frontend Users (Demo)
-1. Start here: **[docs/QUICK_START.md](./docs/QUICK_START.md)** - Get running in 2 minutes
-2. Explore: **[docs/FEATURES_GUIDE.md](./docs/FEATURES_GUIDE.md)** - Complete feature walkthrough
-3. Reference: **[docs/PROJECT_SUMMARY.md](./docs/PROJECT_SUMMARY.md)** - Architecture overview
+## Screenshots
 
-### For Backend Developers (Integration)
-1. Start here: **[docs/FINAL_HANDOFF_SUMMARY.md](./docs/FINAL_HANDOFF_SUMMARY.md)** - Frontend complete, ready for backend
-2. Main spec: **[backend/BACKEND_INTEGRATION_GUIDE.md](./backend/BACKEND_INTEGRATION_GUIDE.md)** - Complete backend requirements
-3. API ref: **[backend/API_ENDPOINTS_REFERENCE.md](./backend/API_ENDPOINTS_REFERENCE.md)** - All endpoints at a glance
+Captured with Playwright against a local run (`npm run build` then `npm start --prefix backend`) using PayPal sandbox and Groq credentials.
 
-### For Project Managers
-1. Status: **[docs/COMPLETION_CHECKLIST.md](./docs/COMPLETION_CHECKLIST.md)** - What's done, what's next
-2. Implementation: **[docs/IMPLEMENTATION_STATUS.md](./docs/IMPLEMENTATION_STATUS.md)** - Detailed feature breakdown
+| Landing page | Admin dashboard |
+|---|---|
+| ![Landing page](docs/screenshots/01-home.png) | ![Admin dashboard](docs/screenshots/03-admin-dashboard.png) |
+| **AI Command Centre (live Groq tool call)** | **Payment Agent (draft batch awaiting authorization)** |
+| ![AI Command Centre](docs/screenshots/04-ai-command-centre-groq.png) | ![Payment Agent](docs/screenshots/05-payment-agent.png) |
+| **Campaigns (USD, from the API)** | **Login with demo accounts** |
+| ![Campaigns](docs/screenshots/06-campaigns.png) | ![Login](docs/screenshots/02-login.png) |
 
----
+## Architecture
 
-## 📦 Project Status
+```
+                        +-------------------------------+
+  Browser               |  Express 5 API (backend/)     |
+ +-----------------+    |  port 4000                    |      +------------------------------+
+ | React 18 SPA    |--->|  /api/*  JWT auth + roles     |----->| PayPal REST (sandbox)        |
+ | (Vite, dist/)   |    |  serves dist/ in production   |      |  Orders v2  create/capture   |
+ | PayPal JS SDK   |    |                               |      |  Payouts v1 create/show      |
+ +-----------------+    |  node:sqlite  -> reliefpay.db |      |  Webhooks   verify signature |
+                        |                               |      +------------------------------+
+                        |  AI agent (src/ai)            |               |
+                        |   tools read DB, draft batch  |----->  Groq chat completions
+                        +-------------------------------+        (OpenAI-compatible)
+                                       ^
+                                       |  PayPal -> POST /api/webhooks/paypal
+```
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| **Frontend** | ✅ 100% COMPLETE | 13+ pages, all features, production-ready |
-| **UI/UX Polish** | ✅ COMPLETE | Professional logo, responsive design, role-based navigation |
-| **Landing Page** | ✅ COMPLETE | Hero with auto-scrolling images, stats, features, testimonials |
-| **Dashboards** | ✅ COMPLETE | 6 role-specific dashboards with unique features |
-| **Backend** | ⏳ Ready for development | Complete spec provided |
-| **PayPal Integration** | 📋 UI ready | Awaiting backend implementation |
-| **AI Integration** | 📋 UI ready | Awaiting Claude API integration |
-| **Database** | 📋 Schema defined | Ready to implement |
+Money flow:
 
----
+1. A donor clicks the PayPal button. The API creates an order (`POST /api/donations/orders`), the donor approves it in the PayPal popup, and the API captures it (`POST /api/donations/orders/:orderId/capture`). The captured amount is added to the campaign.
+2. Reviewers and admins approve applications with an approved amount.
+3. An admin, or the AI agent on the admin's behalf, drafts a payout batch of approved applications. The API checks that the campaign has enough unreserved funds.
+4. The admin releases the batch in the Payment Agent page with the authorization code. The API calls PayPal Payouts and records the PayPal batch id.
+5. PayPal webhooks (or a manual sync) update batch and item status, and the audit log records each step.
 
-## 🎨 Professional UI/UX Features Implemented
+All money is stored as integer cents in USD.
 
-### Logo & Branding
-- ✅ Professional ReliefPay logo on all pages
-- ✅ Consistent brand colors (Navy Blue, Orange, Emerald Green)
-- ✅ Logo in navigation bars, dashboards, and footers
+## Run it locally (for judges)
 
-### Landing Page Redesign
-- ✅ **Hero Section** with auto-scrolling image carousel (11 relief images)
-- ✅ Smooth fade transitions between images
-- ✅ Manual image navigation with indicator dots
-- ✅ Responsive sizing that works on mobile, tablet, desktop
-- ✅ **Statistics Section** with 4 KPI cards (color-coded)
-- ✅ **How It Works** section with 4-step visual timeline
-- ✅ **Trust Indicators** showing partner organizations
-- ✅ **CTA Section** with gradient backgrounds and hover effects
-- ✅ **Professional Footer** with brand section and links
+Prerequisites:
 
-### Navigation & UX
-- ✅ **Back Button** on all pages for easy navigation
-- ✅ Smooth scroll to sections from navigation bar
-- ✅ Role-specific sidebar navigation (no unauthorized pages visible)
-- ✅ Breadcrumb-style navigation with visual hierarchy
-- ✅ Logo clickable to go home
+- Node.js 22.13 or newer (the API uses the built-in `node:sqlite` module).
+- A free PayPal developer account with a sandbox REST app (see [PayPal sandbox setup](#paypal-sandbox-setup)).
+- A free Groq API key from https://console.groq.com.
 
-### Design System
-- ✅ Removed unnecessary emojis (professional appearance)
-- ✅ Consistent button styling across all pages
-- ✅ Uniform card designs with hover effects
-- ✅ Responsive grid layouts
-- ✅ Tailwind CSS utility-first approach
-
----
-
-## 🎯 Core Features
-
-### Public Features
-- ✅ Landing page with hero, stats, testimonials
-- ✅ Auto-scrolling image carousel with 11 relief images
-- ✅ 4-step process visualization
-- ✅ Public campaign directory
-- ✅ User registration
-- ✅ Navigation to all sections with smooth scrolling
-
-### Beneficiary Features
-- ✅ 5-step registration form
-- ✅ 7-step emergency assistance application
-- ✅ Document upload with validation
-- ✅ Application tracking
-- ✅ Dashboard with status overview
-- ✅ Role-specific sidebar (Applications section only)
-
-### Admin/Reviewer Features
-- ✅ Application management (search, filter, review)
-- ✅ AI verification interface (review AI findings)
-- ✅ **AI Command Centre** (conversational control) ⭐
-- ✅ **Payment Agent** (disbursement authorization) ⭐
-- ✅ Role-specific sidebar (Management & Verification section only)
-- ✅ Campaign performance charts
-- ✅ Real-time statistics dashboard
-
-### Donor Features
-- ✅ Browse active campaigns
-- ✅ View donation history
-- ✅ Download tax receipts
-- ✅ Impact tracking
-- ✅ Role-specific sidebar (Donations section only)
-
-### Volunteer Features
-- ✅ View assigned verification tasks
-- ✅ Upload evidence (photos, documents)
-- ✅ Track task completion
-- ✅ Role-specific sidebar (Field Work section only)
-
-### Auditor Features
-- ✅ View audit logs
-- ✅ Export compliance reports
-- ✅ Financial summaries
-- ✅ Role-specific sidebar (Compliance section only)
-
-### Security & Authorization
-- ✅ JWT authentication
-- ✅ Role-based access control (6 roles)
-- ✅ Protected routes
-- ✅ Multi-step payment authorization
-- ✅ Audit logging structure
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 16+
-- npm or yarn
-- Modern browser
-
-### Installation & Running
+Install and configure:
 
 ```bash
-# Install dependencies
-npm install
+npm ci
+npm ci --prefix backend
 
-# Start development server
-npm run dev
-# Opens at http://localhost:5174/
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+# Windows
+copy backend\.env.example backend\.env
+# macOS / Linux
+cp backend/.env.example backend/.env
 ```
 
-### Demo Credentials
-All accounts use password: `password123`
+Edit `backend/.env` and fill at least `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYOUT_AUTH_CODE` and `GROQ_API_KEY`. The app still starts with missing values; the affected feature shows a "not configured" message.
 
-```
-Admin:       alok.v@reliefpay.org
-Reviewer:    s.jenkins@reliefpay.org
-Beneficiary: ayesha.k@gmail.com
-Donor:       mehta.r@techcorp.in
-Volunteer:   vikram.s@reliefpay.org
-Auditor:     elena@auditcore.org
-```
-
----
-
-## 📱 Pages & Routes
-
-### Public Routes
-- `/` - Landing page with hero, stats, testimonials
-- `/login` - Login with demo accounts
-- `/signup` - Signup (role selection)
-- `/campaigns` - Public campaigns
-
-### Beneficiary Routes
-- `/beneficiary/registration` - Registration form (5 steps)
-- `/beneficiary/application/new` - Emergency application (7 steps)
-- `/dashboard` - Beneficiary dashboard
-
-### Admin Routes
-- `/dashboard` - Admin dashboard with charts
-- `/admin/applications` - Application management
-- `/admin/ai-verification` - AI findings review
-- `/admin/ai-command-centre` - AI conversational interface ⭐
-- `/admin/payment-agent` - Payment authorization ⭐
-
-### Other Routes
-- `/unauthorized` - Access denied
-- `*` - 404 (redirects to home)
-
----
-
-## 🏗 Project Structure
-
-```
-reliefpay_production_frontends/
-├── src/
-│   ├── pages/                    # All route pages
-│   │   ├── HomePage.jsx          # Landing with carousel
-│   │   ├── LoginPage.jsx         # Auth with logo
-│   │   ├── DashboardPage.jsx     # Role-specific dashboards
-│   │   ├── BeneficiaryRegistrationPage.jsx
-│   │   ├── EmergencyApplicationPage.jsx
-│   │   ├── ApplicationManagementPage.jsx
-│   │   ├── AIVerificationPage.jsx
-│   │   ├── AICommandCentrePage.jsx ⭐
-│   │   ├── PaymentAgentPage.jsx ⭐
-│   │   └── ...
-│   ├── components/               # Reusable components
-│   │   ├── landing/
-│   │   │   ├── HeroSection.jsx   # Auto-scrolling carousel
-│   │   │   ├── StatsSection.jsx  # Color-coded stats
-│   │   │   ├── HowItWorksSection.jsx
-│   │   │   └── ...
-│   │   ├── common/
-│   │   │   └── BackButton.jsx    # Back navigation
-│   │   ├── auth/
-│   │   ├── dashboard/
-│   │   ├── charts/
-│   │   └── ...
-│   ├── context/
-│   │   └── AuthContext.jsx       # Auth state management
-│   ├── hooks/
-│   │   └── useAuth.js            # Auth hook
-│   ├── data/
-│   │   └── mockData.js           # Sample data
-│   └── App.jsx                   # Router setup
-├── imgs/
-│   ├── logo.png                  # Professional ReliefPay logo
-│   └── images (1-11).jfif       # Background carousel images
-├── docs/                         # Documentation
-│   ├── QUICK_START.md
-│   ├── FEATURES_GUIDE.md
-│   ├── COMPLETION_CHECKLIST.md
-│   └── ...
-├── backend/                      # Backend integration guides
-│   ├── BACKEND_INTEGRATION_GUIDE.md
-│   └── API_ENDPOINTS_REFERENCE.md
-└── package.json
-```
-
----
-
-## 🤖 The Innovation: AI Command Centre
-
-Instead of clicking through complex dashboards, admins control relief operations by typing natural language commands:
-
-```
-Admin: "Show all critical applications awaiting review"
-AI: [Returns table with 5 applications]
-
-Admin: "Prepare a disbursement plan"
-AI: [Generates payout batch with beneficiary list]
-
-Admin: "Authorize the payout"
-AI: [Shows authorization dialog - code required]
-Admin: [Enters code]
-AI: "PayPal batch initiated"
-```
-
-This demonstrates:
-- ✅ Conversational AI interfaces
-- ✅ Multi-agent coordination
-- ✅ Natural language command parsing
-- ✅ Structured data retrieval
-- ✅ Action execution with approval
-
----
-
-## 💳 Payment Authorization Flow
-
-1. Admin reviews pending disbursements
-2. AI prepares payout batch
-3. Frontend shows authorization dialog
-4. Admin enters 5-digit code (demo: 12345)
-5. Backend initiates PayPal Payouts
-6. Webhooks update transaction status
-7. Beneficiaries notified
-
-**Key Innovation:** All payments require explicit human authorization. No autonomous fund movement.
-
----
-
-## 📊 Key Statistics
-
-- **Pages Built:** 13+
-- **Components:** 25+
-- **API Endpoints Ready:** 50+
-- **User Roles:** 6 (Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor)
-- **Form Steps:** 12 (5-step registration + 7-step application)
-- **Demo Accounts:** 6 fully functional
-- **Carousel Images:** 11 professional relief images
-- **Documentation:** 10+ comprehensive guides
-
----
-
-## 🔐 Security Features
-
-- ✅ JWT authentication with expiry
-- ✅ Role-based access control (RBAC)
-- ✅ Protected routes with auth guards
-- ✅ Form validation (client-side & ready for server)
-- ✅ Bank account masking in review
-- ✅ Authorization codes for payments
-- ✅ HTTPS-ready structure
-- ✅ CORS-ready configuration
-
----
-
-## 🎨 Design System
-
-- **Logo:** Professional ReliefPay branding
-- **Colors:**
-  - Primary: Emerald (#059669)
-  - Secondary: Navy Blue (#003D7A)
-  - Accent: Orange (#F5A623)
-  - Neutral: Slate
-- **Typography:** Clean, professional hierarchy
-- **Responsive:** Mobile-first, all screen sizes
-- **Accessible:** ARIA labels, semantic HTML, keyboard navigation
-
----
-
-## ✨ Recent Improvements
-
-### Landing Page Enhancements
-- ✅ Auto-scrolling image carousel (11 images, 4-second rotation)
-- ✅ Manual image navigation with indicator dots
-- ✅ Professional hero section with reduced padding
-- ✅ Color-coded statistics cards
-- ✅ Visual 4-step process timeline
-- ✅ Trust indicators section
-
-### Navigation & UX
-- ✅ Back buttons on all pages
-- ✅ Smooth section scrolling from navbar
-- ✅ Role-specific sidebar visibility
-- ✅ Professional logo integration
-- ✅ Consistent button styling
-
-### Code Organization
-- ✅ Backend docs in `backend/` folder
-- ✅ Frontend docs in `docs/` folder
-- ✅ Original requirements in root
-- ✅ Clean folder structure
-
----
-
-## 📚 Documentation Files
-
-| Document | Purpose | Location |
-|----------|---------|----------|
-| **QUICK_START.md** | Get running in 2 minutes | `docs/` |
-| **FEATURES_GUIDE.md** | Feature walkthrough | `docs/` |
-| **COMPLETION_CHECKLIST.md** | Feature status | `docs/` |
-| **BACKEND_INTEGRATION_GUIDE.md** | Backend spec | `backend/` |
-| **API_ENDPOINTS_REFERENCE.md** | API endpoints | `backend/` |
-| **FINAL_HANDOFF_SUMMARY.md** | Backend handoff | `docs/` |
-| **README.md** | This file | `root` |
-
----
-
-## 🎯 For Backend Team
-
-### Start Here
-1. Read **[docs/FINAL_HANDOFF_SUMMARY.md](./docs/FINAL_HANDOFF_SUMMARY.md)**
-2. Study **[backend/BACKEND_INTEGRATION_GUIDE.md](./backend/BACKEND_INTEGRATION_GUIDE.md)**
-3. Reference **[backend/API_ENDPOINTS_REFERENCE.md](./backend/API_ENDPOINTS_REFERENCE.md)**
-
-### Key Sections
-- Database Schema (10 tables)
-- API Endpoints (50+ routes)
-- PayPal Integration (checkout + payouts)
-- AI Integration (Claude API)
-- Authentication (JWT + RBAC)
-- Error Handling
-- Testing Strategy
-
-### Implementation Phases
-1. Core setup (Auth, Database)
-2. Campaign & Application APIs
-3. Payment Integration
-4. AI Integration
-5. Additional Features
-6. Testing & Deployment
-
----
-
-## 🧪 Testing
-
-### Frontend Testing
-```bash
-# Development
-npm run dev
-
-# Build test
-npm run build
-
-# Test with demo accounts
-# All 6 roles fully functional
-```
-
-### Test Flow
-1. Go to http://localhost:5174/
-2. Click "Sign In"
-3. Select any demo account
-4. Password: `password123`
-5. Explore role-specific dashboard
-
----
-
-## 🚀 Deployment
-
-### Frontend Deployment
-```bash
-npm run build
-# Output in dist/ folder
-# Deploy to Render, Vercel, or any static host
-```
-
-### Recommended Hosts
-- **Vercel** (recommended for React)
-- **Netlify** (easy setup)
-- **Render** (all-in-one platform)
-
----
-
-## 🔗 Integration Points
-
-### Frontend ↔ Backend
-- **Request Format:** JSON with JWT header
-- **Response Format:** Standardized JSON
-- **Error Format:** Consistent error object
-- **Authentication:** Bearer token in header
-- **CORS:** Configured for localhost + production
-
-### Backend ↔ External APIs
-- **PayPal:** Checkout + Payouts + Webhooks
-- **Anthropic Claude:** Command parsing + verification
-- **AWS S3:** File storage (optional)
-- **Email Service:** Notifications
-
----
-
-## 💡 Innovation Highlights
-
-1. **Agentic AI** - Multi-agent architecture with specialized agents
-2. **Conversational Interface** - Natural language command control
-3. **Human-Authorized Payments** - No autonomous fund movement
-4. **Transparent Workflow** - Complete audit trail
-5. **Multi-Role System** - 6 different user types with unique features
-6. **Professional UI/UX** - Production-ready design with logo branding
-7. **Responsive Design** - Works perfectly on all devices
-8. **Auto-Scrolling Carousel** - Engaging visual element on landing
-
----
-
-## 📈 Performance
-
-- **Frontend Bundle:** Optimized (lightweight, no heavy libraries)
-- **Load Time:** < 2 seconds
-- **Form Validation:** Real-time client-side
-- **Responsive:** Works on mobile, tablet, desktop
-- **Accessibility:** WCAG compliant
-- **Smooth Animations:** CSS-based transitions
-
----
-
-## 🛠 Technology Stack
-
-### Frontend
-- React 18
-- React Router 7
-- Tailwind CSS 3
-- Vite 5
-- Lucide Icons
-- No external UI libraries (custom components)
-
-### Backend (Recommended)
-- Node.js + Express
-- PostgreSQL
-- Redis
-- PayPal API
-- Anthropic Claude API
-
----
-
-## ✅ Submission Ready
-
-This frontend is ready for submission to the PayPal AI Hackathon with:
-- ✅ Complete feature implementation
-- ✅ Professional logo branding
-- ✅ Beautiful landing page with carousel
-- ✅ All 13+ pages fully functional
-- ✅ 6 role-specific dashboards
-- ✅ Agentic AI architecture
-- ✅ PayPal integration points
-- ✅ Comprehensive documentation
-- ✅ Demo-ready experience
-- ✅ Production-ready code
-
----
-
-## 🚀 Next Steps
-
-1. Backend team reviews `backend/BACKEND_INTEGRATION_GUIDE.md`
-2. Set up development environment
-3. Start Phase 1: Core Setup
-4. Daily standup meetings
-5. Weekly integration testing
-6. Staging deployment
-7. Final testing & submission
-
----
-
-## 📞 Support
-
-For any questions or issues:
-1. Check relevant documentation in `docs/` or `backend/` folders
-2. Review code in `/src` folder
-3. Test with demo credentials
-4. Contact frontend team
-
----
-
-**Status:** Frontend Complete ✅ → Backend Ready for Integration ⏳
-
-**Deadline:** November 12, 2026
-
-**Let's ship this! 🚀**
-
----
-
-*Last Updated: October 30, 2026*
-*Frontend Version: 1.0*
-*Ready for Backend Integration*
-*Professional Design & Branding Implemented*
-
----
-
-## 🎯 Core Features
-
-### Public Features
-- ✅ Landing page with hero, stats, testimonials
-- ✅ Public campaign directory
-- ✅ User registration
-
-### Beneficiary Features
-- ✅ 5-step registration form
-- ✅ 7-step emergency assistance application
-- ✅ Document upload with validation
-- ✅ Application tracking
-- ✅ Dashboard with status overview
-
-### Admin Features
-- ✅ Application management (search, filter, review)
-- ✅ AI verification interface (review AI findings)
-- ✅ **AI Command Centre** (conversational control) ⭐
-- ✅ **Payment Agent** (disbursement authorization) ⭐
-- ✅ Role-based dashboards
-
-### Security & Authorization
-- ✅ JWT authentication
-- ✅ Role-based access control (6 roles)
-- ✅ Multi-step payment authorization
-- ✅ Audit logging structure
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 16+
-- npm or yarn
-- Modern browser
-
-### Installation & Running
+Development mode (two terminals):
 
 ```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-# Opens at http://localhost:5173/
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+npm run dev --prefix backend   # API on http://localhost:4000 (restarts on change)
+npm run dev                    # Vite on http://localhost:5173, proxies /api to port 4000
 ```
 
-### Demo Credentials
-All accounts use password: `password123`
+Open http://localhost:5173.
 
-```
-Admin:       alok.v@reliefpay.org
-Reviewer:    s.jenkins@reliefpay.org
-Beneficiary: ayesha.k@gmail.com
-Donor:       mehta.r@techcorp.in
-Volunteer:   vikram.s@reliefpay.org
-Auditor:     elena@auditcore.org
-```
+Production-style single process (one URL, the API serves the built SPA):
 
----
-
-## 📱 Pages & Routes
-
-### Public Routes
-- `/` - Landing page
-- `/login` - Login
-- `/signup` - Signup
-- `/campaigns` - Public campaigns
-
-### Beneficiary Routes
-- `/beneficiary/registration` - Registration form (5 steps)
-- `/beneficiary/application/new` - Emergency application (7 steps)
-- `/dashboard` - Beneficiary dashboard
-
-### Admin Routes
-- `/dashboard` - Admin dashboard
-- `/admin/applications` - Application management
-- `/admin/ai-verification` - AI findings review
-- `/admin/ai-command-centre` - AI conversational interface ⭐
-- `/admin/payment-agent` - Payment authorization ⭐
-
-### Other Routes
-- `/unauthorized` - Access denied
-- `*` - 404 (redirects to home)
-
----
-
-## 🏗 Project Structure
-
-```
-src/
-├── pages/                    # All route pages
-│   ├── HomePage.jsx
-│   ├── LoginPage.jsx
-│   ├── BeneficiaryRegistrationPage.jsx
-│   ├── EmergencyApplicationPage.jsx
-│   ├── ApplicationManagementPage.jsx
-│   ├── AIVerificationPage.jsx
-│   ├── AICommandCentrePage.jsx (CORE FEATURE)
-│   ├── PaymentAgentPage.jsx (CORE FEATURE)
-│   └── ...
-├── components/              # Reusable components
-│   ├── auth/
-│   ├── dashboard/
-│   ├── landing/
-│   ├── charts/
-│   └── ...
-├── context/
-│   └── AuthContext.jsx      # Auth state management
-├── hooks/
-│   └── useAuth.js           # Auth hook
-├── data/
-│   └── mockData.js          # Sample data
-└── App.jsx                  # Router setup
-```
-
----
-
-## 🤖 The Innovation: AI Command Centre
-
-Instead of clicking through complex dashboards, admins control relief operations by typing natural language commands:
-
-```
-Admin: "Show all critical applications awaiting review"
-AI: [Returns table with 5 applications]
-
-Admin: "Prepare a disbursement plan"
-AI: [Generates payout batch with beneficiary list]
-
-Admin: "Authorize the payout"
-AI: [Shows authorization dialog - code required]
-Admin: [Enters code]
-AI: "PayPal batch initiated"
-```
-
-This demonstrates:
-- ✅ Conversational AI interfaces
-- ✅ Multi-agent coordination
-- ✅ Natural language command parsing
-- ✅ Structured data retrieval
-- ✅ Action execution with approval
-
----
-
-## 💳 Payment Authorization Flow
-
-1. Admin reviews pending disbursements
-2. AI prepares payout batch
-3. Frontend shows authorization dialog
-4. Admin enters 5-digit code (demo: 12345)
-5. Backend initiates PayPal Payouts
-6. Webhooks update transaction status
-7. Beneficiaries notified
-
-**Key Innovation:** All payments require explicit human authorization. No autonomous fund movement.
-
----
-
-## 📊 Key Statistics
-
-- **Pages Built:** 13+
-- **Components:** 20+
-- **API Endpoints Ready:** 50+
-- **User Roles:** 6 (Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor)
-- **Form Steps:** 12 (5-step registration + 7-step application)
-- **Demo Accounts:** 6 fully functional accounts
-- **Test Data:** 3 campaigns, 2 applications, 6 donations, mock findings
-
----
-
-## 🔐 Security Features
-
-- ✅ JWT authentication with expiry
-- ✅ Role-based access control
-- ✅ Protected routes with auth guards
-- ✅ Form validation (client-side)
-- ✅ Bank account masking in review
-- ✅ Authorization codes for payments
-- ✅ HTTPS-ready structure
-- ✅ CORS-ready configuration
-
----
-
-## 🎨 Design System
-
-- **Framework:** Tailwind CSS 3
-- **Color Scheme:**
-  - Primary: Emerald (#087E83)
-  - Neutral: Slate
-  - Status: Red, Amber, Yellow, Blue
-- **Responsive:** Mobile-first, works on all screen sizes
-- **Accessible:** ARIA labels, semantic HTML, keyboard navigation
-
----
-
-## 📚 Documentation Files
-
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| **QUICK_START.md** | Get running in 2 minutes | Everyone |
-| **FEATURES_GUIDE.md** | Complete feature walkthrough | End users, QA |
-| **PROJECT_SUMMARY.md** | Architecture & components | Developers |
-| **COMPLETION_CHECKLIST.md** | Feature coverage & status | PM, QA |
-| **IMPLEMENTATION_STATUS.md** | Detailed feature breakdown | Developers |
-| **BACKEND_INTEGRATION_GUIDE.md** | Backend requirements spec | Backend team |
-| **API_ENDPOINTS_REFERENCE.md** | All API endpoints | Backend team |
-| **FINAL_HANDOFF_SUMMARY.md** | Frontend → Backend handoff | Backend team |
-| **README.md** | This file | Everyone |
-
----
-
-## 🎯 For Backend Team
-
-### Start Here
-1. Read **[FINAL_HANDOFF_SUMMARY.md](./FINAL_HANDOFF_SUMMARY.md)**
-2. Study **[BACKEND_INTEGRATION_GUIDE.md](./BACKEND_INTEGRATION_GUIDE.md)**
-3. Reference **[API_ENDPOINTS_REFERENCE.md](./API_ENDPOINTS_REFERENCE.md)**
-
-### Key Sections
-- Database Schema (10 tables)
-- API Endpoints (50+ routes)
-- PayPal Integration (checkout + payouts)
-- AI Integration (Claude API)
-- Authentication (JWT + RBAC)
-- Error Handling
-- Testing Strategy
-
-### Implementation Phases
-1. Core setup (Auth, Database)
-2. Campaign & Application APIs
-3. Payment Integration
-4. AI Integration
-5. Additional Features
-6. Testing & Deployment
-
----
-
-## 🧪 Testing
-
-### Frontend Testing
-```bash
-# Development
-npm run dev
-
-# Build test
-npm run build
-
-# The app is tested with:
-# - Form validation
-# - Multi-step workflows
-# - Role-based access
-# - Mock data
-```
-
-### Backend Testing (TBD)
-Backend team will implement:
-- Unit tests
-- Integration tests
-- API endpoint tests
-- Security tests
-- Load tests
-
----
-
-## 🚀 Deployment
-
-### Frontend Deployment
 ```bash
 npm run build
-# Output in dist/ folder
-# Deploy to Render, Vercel, or any static host
+npm start --prefix backend
 ```
 
-### Backend Deployment (TBD)
-Backend team will deploy to Render or similar
+Open http://localhost:4000.
 
----
+Other commands:
 
-## 🔗 Integration Points
+```bash
+npm test --prefix backend         # backend tests (PayPal and Groq are faked, no network)
+npm run seed:reset --prefix backend   # delete the SQLite database and re-seed demo data
+```
 
-### Frontend ↔ Backend
-- **Request Format:** JSON with JWT header
-- **Response Format:** Standardized JSON
-- **Error Format:** Consistent error object
-- **Authentication:** Bearer token in header
-- **CORS:** Configured for localhost + production
+The database is created and seeded on first start at `backend/data/reliefpay.db`.
 
-### Backend ↔ External APIs
-- **PayPal:** Checkout + Payouts + Webhooks
-- **Anthropic Claude:** Command parsing + verification
-- **AWS S3:** File storage
-- **Email Service:** Notifications
+## Demo accounts
 
----
+All accounts use the password `password123`.
 
-## 💡 Innovation Highlights
+| Role        | Email                    |
+|-------------|--------------------------|
+| Admin       | alok.v@reliefpay.org     |
+| Reviewer    | s.jenkins@reliefpay.org  |
+| Beneficiary | ayesha.k@gmail.com       |
+| Donor       | mehta.r@techcorp.in      |
+| Volunteer   | vikram.s@reliefpay.org   |
+| Auditor     | elena@auditcore.org      |
 
-1. **Agentic AI** - Multi-agent architecture with specialized agents
-2. **Conversational Interface** - Natural language command control
-3. **Human-Authorized Payments** - No autonomous fund movement
-4. **Transparent Workflow** - Complete audit trail
-5. **Multi-Role System** - 6 different user types
-6. **Professional UI** - Production-ready design
+## Environment variables
 
----
+Backend (`backend/.env`, see `backend/.env.example`):
 
-## 📈 Performance
+| Name | Required? | Purpose |
+|------|-----------|---------|
+| `PORT` | No (4000) | Port the API listens on. |
+| `JWT_SECRET` | In production | Signs login tokens. Without it a random secret is used and logins reset on restart. |
+| `DATABASE_PATH` | No | SQLite file path. Default `backend/data/reliefpay.db`. |
+| `PAYPAL_CLIENT_ID` | For PayPal | Sandbox REST app client id. Also sent to the browser to load the PayPal JS SDK. |
+| `PAYPAL_CLIENT_SECRET` | For PayPal | Sandbox REST app secret. Stays on the server. |
+| `PAYPAL_API_BASE` | No | PayPal REST base URL. Default `https://api-m.sandbox.paypal.com`. |
+| `PAYPAL_WEBHOOK_ID` | For webhooks | Id of the webhook created in the PayPal dashboard, used to verify signatures. |
+| `PAYPAL_CURRENCY` | No (USD) | Currency for donations and payouts. |
+| `PAYOUT_AUTH_CODE` | For payouts | Code an admin must enter to release a payout batch. |
+| `PAYOUT_RECEIVER_EMAIL` | No | Sends every payout item to this sandbox personal account instead of the seeded example addresses. |
+| `GROQ_API_KEY` | For the AI agent | Groq API key. |
+| `GROQ_BASE_URL` | No | Default `https://api.groq.com/openai/v1`. |
+| `GROQ_MODEL` | No | Default `openai/gpt-oss-120b`. |
 
-- **Frontend Bundle:** Optimized (no heavy libraries)
-- **Load Time:** < 2 seconds
-- **Form Validation:** Real-time client-side
-- **Responsive:** Works on mobile, tablet, desktop
-- **Accessibility:** WCAG compliant
+Frontend (`.env` at the repo root, see `.env.example`): `VITE_API_URL` stays empty when the API serves the SPA or when you use the Vite dev proxy. Set it only if the frontend is hosted separately from the API.
 
----
+## PayPal sandbox setup
 
-## 🛠 Technology Stack
+1. Sign in at https://developer.paypal.com, open **Apps & Credentials** (Sandbox) and create an app. Copy its client id and secret into `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`.
+2. Under **Sandbox accounts** you get a business account and a personal account. The business account (the app owner) receives donations and funds the payouts. Use the personal account to pay donations in the PayPal popup, and put its email in `PAYOUT_RECEIVER_EMAIL` so payouts land in an account you can open.
+3. Webhooks (needed only for a public deployment): in the app, add a webhook with URL `https://<your-host>/api/webhooks/paypal` subscribed to `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.DENIED`, `PAYMENT.PAYOUTSBATCH.*` and `PAYMENT.PAYOUTS-ITEM.*`. Copy the webhook id into `PAYPAL_WEBHOOK_ID`.
+4. Local runs have no public URL for webhooks. After releasing a batch, click **Refresh status from PayPal** in the Payment Agent page; it calls `POST /api/payouts/:id/sync`, which reads the batch from PayPal.
 
-### Frontend
-- React 18
-- React Router 7
-- Tailwind CSS 3
-- Vite 5
-- React Hook Form
-- Zod validation
+## Deploy to Render
 
-### Backend (Recommended)
-- Node.js + Express
-- PostgreSQL
-- Redis
-- PayPal API
-- Anthropic Claude API
+The repo includes `render.yaml`, a Blueprint with one free web service that builds the SPA and runs the API.
 
----
+1. In the Render dashboard choose **New > Blueprint** and pick this repository.
+2. Fill in the variables marked `sync: false`: `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, `PAYPAL_WEBHOOK_ID`, `PAYOUT_AUTH_CODE`, `PAYOUT_RECEIVER_EMAIL`, `GROQ_API_KEY`. `JWT_SECRET` is generated by Render.
+3. After the first deploy, create the PayPal webhook for `https://<service>.onrender.com/api/webhooks/paypal` and set `PAYPAL_WEBHOOK_ID`.
 
-## 📞 Communication
+Free instances sleep when idle, so the first request after a pause is slow. The SQLite file lives on the instance's disk and is reset on every redeploy or restart, then re-seeded with the demo data.
 
-### For Questions About
-- **Frontend features** → Review FEATURES_GUIDE.md
-- **API specification** → Review API_ENDPOINTS_REFERENCE.md
-- **Database schema** → Review BACKEND_INTEGRATION_GUIDE.md
-- **Specific pages** → Check `/src/pages/` folder
-- **Mock data** → Check `/src/data/mockData.js`
+## Tools used
 
----
+- **PayPal JS SDK v5 Buttons**: the donate buttons on the campaign page.
+- **PayPal Orders v2**: create and capture donation orders from the API.
+- **PayPal Payouts v1**: create payout batches and read batch status.
+- **PayPal Webhooks**: `verify-webhook-signature` for every incoming event.
+- **Groq**: OpenAI-compatible chat completions with tool calling, default model `openai/gpt-oss-120b`. The tools run locally in the API (`backend/src/ai/tools.js`): `get_campaigns`, `list_applications`, `list_donations`, `list_payout_batches` and `draft_payout_batch`. Every call is audited.
+- **Render**: hosting through `render.yaml`.
+- **Kiro** (AI coding assistant): used to plan, write and test the backend, the PayPal and Groq integrations, the frontend wiring and this documentation.
 
-## ✅ Submission Ready
+We evaluated the PayPal Agent Toolkit and did not use it. It has no Payouts tools, and our agent must only read our own database and draft batches, never move money itself.
 
-This frontend is ready for submission to the PayPal AI Hackathon with:
-- ✅ Complete feature implementation
-- ✅ Professional design
-- ✅ Agentic AI architecture
-- ✅ PayPal integration points
-- ✅ Comprehensive documentation
-- ✅ Demo-ready experience
+## Safety design
 
----
+- **Human in the loop.** The AI agent can draft a payout batch but has no release tool. Only an admin can release, in the Payment Agent page.
+- **Server-side authorization code.** The release code is checked on the server with a constant-time comparison. After 5 wrong attempts the batch is locked, and every failed attempt is audited.
+- **No secrets in the browser.** The PayPal client secret, Groq key and authorization code live only in the API environment. The browser receives only the PayPal client id.
+- **Funds checks.** Drafting fails if the campaign does not have enough unreserved funds or an application is not approved.
+- **No double payouts after a failed release.** If PayPal returns an error, the batch moves to `RELEASE_FAILED` and keeps its applications, so they cannot be drafted into a second batch. Retry the same batch: it is resent with the same `sender_batch_id`, which PayPal deduplicates. While an application sits in a batch, its approved amount cannot be changed.
 
-## 🎓 Key Learnings
+## Known limitations
 
-1. **Agentic Design** - Traditional dashboards → Conversational AI control
-2. **Multi-Agent Architecture** - Specialized agents working together
-3. **Human-in-the-Loop** - AI recommendations, human decisions
-4. **Financial Transparency** - Every transaction tracked & auditable
-5. **Accessibility** - Relief platforms must be accessible to all
+- **Refunds and reversals are recorded only.** `PAYMENT.CAPTURE.REFUNDED`/`REVERSED` webhooks and payout items that become `RETURNED` or `REVERSED` after `SUCCESS` are written to the audit log, but they do not lower the campaign's raised or disbursed totals.
+- **A batch can get stuck in `RELEASING`.** If the API process stops after sending a batch to PayPal and before PayPal answers, the batch stays `RELEASING` and cannot be released or synced. Check the batch in the PayPal sandbox dashboard, then run `npm run seed:reset --prefix backend` to reset the demo data. On Render the database is re-seeded on every restart.
 
----
+## Demo script (under 3 minutes)
 
-## 📄 License
+| Time | Scene |
+|------|-------|
+| 0:00 | The problem: relief money is slow to reach people and hard to audit. |
+| 0:20 | Log in as the donor, open a campaign, donate $25 with a sandbox PayPal account; the progress bar moves. |
+| 0:50 | Log in as the admin, open the AI Command Centre, ask for approved applications, then ask the agent to draft a payout batch. |
+| 1:30 | Open Payment Agent, enter a wrong code first (rejected), then the right code to release the batch to PayPal Payouts. |
+| 2:10 | Click "Refresh status from PayPal" (or show the webhook update) to see the batch status. |
+| 2:30 | Log in as the auditor and show the full audit trail: donation, AI chat and tool calls, draft, failed code, release. |
+| 2:50 | Close: PayPal moves the money, AI does the paperwork, a human approves. |
 
-ReliefPay - PayPal AI Hackathon 2026
-All rights reserved for hackathon submission
+## License
 
----
-
-## 👥 Team
-
-**Frontend Team:** Built complete UI/UX with all features
-**Backend Team:** Ready to integrate PayPal, AI, and Database
-
----
-
-## 🚀 Next Steps
-
-1. Backend team reviews BACKEND_INTEGRATION_GUIDE.md
-2. Set up development environment
-3. Start Phase 1: Core Setup
-4. Daily standup meetings
-5. Weekly integration testing
-6. Staging deployment
-7. Final testing & submission
-
----
-
-## 📞 Support
-
-For any questions or issues:
-1. Check relevant documentation
-2. Review code in `/src` folder
-3. Test with demo credentials
-4. Contact frontend team
-
----
-
-**Status:** Frontend Complete ✅ → Backend Ready for Integration ⏳
-
-**Deadline:** November 12, 2026
-
-**Let's ship this! 🚀**
-
----
-
-*Last Updated: October 30, 2026*
-*Frontend Version: 1.0*
-*Ready for Backend Integration*
-
+MIT. See [LICENSE](LICENSE).

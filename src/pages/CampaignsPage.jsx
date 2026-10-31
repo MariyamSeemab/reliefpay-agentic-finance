@@ -1,15 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { CampaignGrid } from '../components/campaigns/CampaignGrid';
 import { CampaignDetail } from '../components/campaigns/CampaignDetail';
-import { INITIAL_CAMPAIGNS } from '../data/mockData';
-import { Search } from 'lucide-react';
+import { apiFetch } from '../lib/api';
+import { formatMoney } from '../lib/money';
+import { Search, AlertCircle } from 'lucide-react';
 
 export default function CampaignsPage() {
   const { isAuthenticated } = useAuth();
-  const [campaigns] = useState(INITIAL_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const loadCampaigns = useCallback(async () => {
+    try {
+      const { campaigns: list } = await apiFetch('/campaigns', { auth: false });
+      setCampaigns(list);
+      setLoadError('');
+    } catch (err) {
+      setLoadError(err.message || 'Could not load campaigns');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [loadCampaigns]);
+
+  // After a donation: show the updated campaign and refresh the list.
+  const handleCampaignUpdated = useCallback((updated) => {
+    if (updated) setSelectedCampaign(updated);
+    loadCampaigns();
+  }, [loadCampaigns]);
 
   const filteredCampaigns = campaigns.filter(c =>
     c.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -20,7 +45,11 @@ export default function CampaignsPage() {
     return (
       <div className="min-h-screen bg-[#F6F8F9]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <CampaignDetail campaign={selectedCampaign} onClose={() => setSelectedCampaign(null)} />
+          <CampaignDetail
+            campaign={selectedCampaign}
+            onClose={() => setSelectedCampaign(null)}
+            onCampaignUpdated={handleCampaignUpdated}
+          />
         </div>
       </div>
     );
@@ -50,7 +79,22 @@ export default function CampaignsPage() {
         </div>
 
         {/* Campaign Grid */}
-        {isAuthenticated ? (
+        {isLoading ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
+            <p className="text-slate-600">Loading campaigns…</p>
+          </div>
+        ) : loadError ? (
+          <div className="bg-white rounded-2xl border border-red-200 p-12 text-center">
+            <AlertCircle className="w-6 h-6 text-red-600 mx-auto mb-3" />
+            <p className="text-red-700 mb-4">{loadError}</p>
+            <button
+              onClick={() => { setIsLoading(true); loadCampaigns(); }}
+              className="inline-block bg-[#087E83] hover:bg-[#123B4A] text-white font-bold px-6 py-3 rounded-lg transition"
+            >
+              Retry
+            </button>
+          </div>
+        ) : isAuthenticated ? (
           <CampaignGrid campaigns={filteredCampaigns} onSelectCampaign={setSelectedCampaign} />
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
@@ -75,7 +119,7 @@ export default function CampaignsPage() {
           </div>
           <div className="text-center">
             <p className="text-4xl font-bold text-slate-900 mb-2">
-              ₹{campaigns.reduce((sum, c) => sum + c.raisedAmount, 0).toLocaleString().slice(0, -3)}Cr
+              {formatMoney(campaigns.reduce((sum, c) => sum + c.raisedAmount, 0), campaigns[0]?.currency)}
             </p>
             <p className="text-slate-600">Total Raised</p>
           </div>
