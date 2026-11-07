@@ -204,7 +204,7 @@ Free instances sleep when idle, so the first request after a pause is slow. The 
 - **Groq**: OpenAI-compatible chat completions with tool calling, default model `openai/gpt-oss-120b`. The tools run locally in the API (`backend/src/ai/tools.js`): `get_campaigns`, `list_applications`, `list_donations`, `list_payout_batches` and `draft_payout_batch`. Every call is audited. Structured outputs (strict JSON schema) for the split suggestion. The AI Command Centre and the split suggestion always use Groq.
 - **Amazon Bedrock (Nova 2 Lite, `us.amazon.nova-2-lite-v1:0`)**: the AG Studio assistant only, when `AG_STUDIO_AI_PROVIDER=bedrock`. Each AG Studio turn sends about 5,000 input tokens, which does not fit Groq's free 8,000 tokens per minute limit, so this assistant runs on Bedrock instead. The proxy (`backend/src/ai/bedrockStudio.js`) uses `@aws-sdk/client-bedrock-runtime` ConverseStream with tool use, and translates between the OpenAI Responses format the AG Studio adapter speaks and the Converse format. `infra/reliefpay-bedrock.yaml` is a CloudFormation template for an IAM user that may only invoke this inference profile.
 - **AG Studio** (`ag-studio` and `ag-studio-react` 3.0.0): the analytics page at `/admin/analytics`, with `AgStudioProvider` taking the licence key from the API and the AI assistant adapter copied from the AG Studio docs through the PayPal boilerplate.
-- **Postman** (collection format v2.1): the API collection and environment in `docs/postman/`, also published in a [public Postman workspace](https://www.postman.com/orbital-module-cosmonaut-84618325/workspace/reliefpay-paypal-ai-hackathon).
+- **Postman** (collection format v2.1): the API collection and environment in `docs/postman/`, also published in a [public Postman workspace](https://www.postman.com/orbital-module-cosmonaut-84618325-s-team/workspace/reliefpay-paypal-ai-hackathon).
 - **Render**: hosting through `render.yaml`.
 - **Kiro** (AI coding assistant): used to plan, write and test the backend, the PayPal and Groq integrations, the frontend wiring and this documentation.
 
@@ -212,7 +212,7 @@ We evaluated the PayPal Agent Toolkit and did not use it. It has no Payouts tool
 
 ## Postman collection
 
-**Public Postman workspace:** [ReliefPay - PayPal AI Hackathon](https://www.postman.com/orbital-module-cosmonaut-84618325/workspace/reliefpay-paypal-ai-hackathon). It has the ReliefPay API collection and the "ReliefPay (Render)" environment pointing at https://reliefpay.onrender.com. Fork it, select the environment, and run **Login** first.
+**Public Postman workspace:** [ReliefPay - PayPal AI Hackathon](https://www.postman.com/orbital-module-cosmonaut-84618325-s-team/workspace/reliefpay-paypal-ai-hackathon). It has the ReliefPay API collection and the "ReliefPay (Render)" environment pointing at https://reliefpay.onrender.com. Fork it, select the environment, and run **Login** first.
 
 The same files are in `docs/postman/`: `ReliefPay.postman_collection.json` and `ReliefPay.postman_environment.json`. They contain no secrets.
 
