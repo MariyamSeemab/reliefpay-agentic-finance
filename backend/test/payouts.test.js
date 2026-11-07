@@ -104,7 +104,10 @@ describe('payouts', () => {
 
     const posts = payoutPosts();
     assert.equal(posts.length, 1);
-    assert.equal(posts[0].body.sender_batch_header.sender_batch_id, 'PB-SEED-001');
+    const sentId = posts[0].body.sender_batch_header.sender_batch_id;
+    assert.match(sentId, /^PB-SEED-001-[a-z0-9]+-[0-9a-f]{6}$/);
+    assert.ok(sentId.length <= 255);
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, sentId);
     assert.equal(posts[0].body.sender_batch_header.recipient_type, 'EMAIL');
     assert.deepEqual(
       posts[0].body.items.map((i) => [i.receiver, i.sender_item_id, i.amount.value, i.amount.currency]),
@@ -148,10 +151,28 @@ describe('payouts', () => {
     assert.equal(retry.body.batch.status, 'PENDING');
     const posts = payoutPosts();
     assert.equal(posts.length, 2);
-    assert.deepEqual(
-      posts.map((p) => p.body.sender_batch_header.sender_batch_id),
-      ['PB-SEED-001', 'PB-SEED-001'],
-    );
+    const [first, second] = posts.map((p) => p.body.sender_batch_header.sender_batch_id);
+    assert.match(first, /^PB-SEED-001-/);
+    assert.equal(second, first);
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, first);
+  });
+
+  test('a re-seeded database sends a new sender_batch_id for the same batch id', async () => {
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    const firstId = payoutPosts()[0].body.sender_batch_header.sender_batch_id;
+
+    // A fresh seed (as on a Render restart) recreates PB-SEED-001 as DRAFT.
+    await setup();
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, null);
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    const secondId = payoutPosts()[0].body.sender_batch_header.sender_batch_id;
+    assert.match(secondId, /^PB-SEED-001-/);
+    assert.notEqual(secondId, firstId);
+  });
+
+  test('wrong code does not assign a sender_batch_id', async () => {
+    assert.equal((await release('PB-SEED-001', '000000')).status, 403);
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, null);
   });
 
   test('changing the approved amount of an application held by a batch -> 409', async () => {

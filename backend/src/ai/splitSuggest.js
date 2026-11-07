@@ -27,6 +27,8 @@ const SYSTEM_PROMPT = [
   'You suggest how to split one USD donation across the active relief campaigns listed by the user.',
   'Weight the split toward the least-funded campaigns, judged by the remaining amount to target and the percent funded.',
   'Use only the campaign ids given. Give every listed campaign an integer percent of at least 0; the percents must sum to exactly 100.',
+  'Each campaign has precomputed fundedPercent (share of target already raised) and remaining (USD still needed).',
+  'If the rationale cites numbers, quote only those fundedPercent and remaining values exactly as given; do not compute other percentages.',
   'Keep the rationale under 300 characters.',
   'You only propose a split; the donor reviews, edits and decides.',
 ].join(' ');
@@ -52,6 +54,7 @@ export async function suggestSplit({ db, groq, amount }) {
       target: c.target_cents / 100,
       raised: c.raised_cents / 100,
       remaining: Math.max(0, c.target_cents - c.raised_cents) / 100,
+      fundedPercent: c.target_cents > 0 ? Math.round((c.raised_cents / c.target_cents) * 1000) / 10 : 0,
     }));
   if (campaigns.length < 2) {
     throw new HttpError(409, 'NOT_ENOUGH_CAMPAIGNS', 'At least two active campaigns are needed for a split');

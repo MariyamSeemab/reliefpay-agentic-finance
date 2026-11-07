@@ -179,6 +179,13 @@ export function draftPayoutBatch(db, config, { actor, userId, campaignId, applic
   return getPayoutBatch(db, batchId);
 }
 
+// PayPal rejects a sender_batch_id it saw in the last 30 days, and a re-seeded
+// database reuses batch ids such as PB-SEED-001, so the batch id alone is not
+// unique enough. Limit is 255 characters; this is about 30.
+function newSenderBatchId(batchId) {
+  return `${batchId}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+}
+
 function codesMatch(provided, expected) {
   const a = crypto.createHash('sha256').update(String(provided ?? '')).digest();
   const b = crypto.createHash('sha256').update(String(expected)).digest();
@@ -233,9 +240,16 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
     });
   }
 
+  // The first release attempt stores a unique sender_batch_id; a retry of a
+  // RELEASE_FAILED batch reuses it so PayPal's dedup still blocks double pay.
+  const senderBatchId = batch.sender_batch_id || newSenderBatchId(batch.id);
   tx(db, () => {
     const now = new Date().toISOString();
-    db.prepare("UPDATE payout_batches SET status = 'RELEASING', updated_at = ? WHERE id = ?").run(now, batch.id);
+    db.prepare("UPDATE payout_batches SET status = 'RELEASING', sender_batch_id = ?, updated_at = ? WHERE id = ?").run(
+      senderBatchId,
+      now,
+      batch.id,
+    );
     db.prepare("UPDATE payout_items SET status = 'PENDING', error = NULL, updated_at = ? WHERE batch_id = ?").run(now, batch.id);
   });
 
@@ -243,7 +257,7 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
   let res;
   try {
     res = await paypal.createPayoutBatch({
-      senderBatchId: batch.id,
+      senderBatchId,
       emailSubject: 'You have received ReliefPay disaster relief funds',
       emailMessage: `Relief payment from the campaign "${campaign?.title ?? batch.campaign_id}".`,
       items: items.map((i) => ({
