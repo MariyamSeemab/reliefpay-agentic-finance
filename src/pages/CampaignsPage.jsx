@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { CampaignGrid } from '../components/campaigns/CampaignGrid';
 import { CampaignDetail } from '../components/campaigns/CampaignDetail';
 import { SplitDonationPanel } from '../components/campaigns/SplitDonationPanel';
+import { BackButton } from '../components/common/BackButton';
 import { apiFetch } from '../lib/api';
 import { formatMoney } from '../lib/money';
 import { Search, AlertCircle } from 'lucide-react';
@@ -62,6 +63,10 @@ export default function CampaignsPage() {
         {/* Header */}
         <div className="space-y-4">
           <div>
+            <BackButton
+              to={isAuthenticated ? '/dashboard' : '/'}
+              label={isAuthenticated ? 'Back to Dashboard' : 'Back to Home'}
+            />
             <h1 className="text-4xl font-bold text-slate-900">Relief Campaigns</h1>
             <p className="text-slate-600 mt-2">Support ongoing disaster relief efforts. Every contribution helps families rebuild their lives.</p>
           </div>

@@ -1,0 +1,182 @@
+<mxfile host="app.diagrams.net" agent="Kiro" version="24.0.0">
+  <diagram id="reliefpay-architecture" name="ReliefPay architecture">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="920" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="&lt;b&gt;ReliefPay - Agentic Relief Finance&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:12px&quot;&gt;PayPal sandbox money in and out, AI that drafts but never releases money&lt;/span&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=20;fontColor=#0F2E4A;" vertex="1" parent="1">
+          <mxGeometry x="400" y="10" width="800" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Users -->
+        <mxCell id="users" value="&lt;b&gt;Users (6 roles)&lt;/b&gt;" style="swimlane;html=1;rounded=1;fillColor=#F1F5F9;strokeColor=#94A3B8;fontColor=#0F172A;startSize=30;" vertex="1" parent="1">
+          <mxGeometry x="20" y="90" width="200" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="u-donor" value="&lt;b&gt;Donor&lt;/b&gt;&lt;br&gt;donates, splits a gift,&lt;br&gt;downloads tax receipts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="users">
+          <mxGeometry x="15" y="45" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="u-admin" value="&lt;b&gt;Admin&lt;/b&gt;&lt;br&gt;AI Command Centre,&lt;br&gt;approves and releases payouts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="users">
+          <mxGeometry x="15" y="130" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="u-reviewer" value="&lt;b&gt;Reviewer&lt;/b&gt;&lt;br&gt;approves applications" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="users">
+          <mxGeometry x="15" y="215" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="u-beneficiary" value="&lt;b&gt;Beneficiary&lt;/b&gt;&lt;br&gt;applies for relief,&lt;br&gt;receives a PayPal payout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="users">
+          <mxGeometry x="15" y="290" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="u-volunteer" value="&lt;b&gt;Volunteer&lt;/b&gt;&lt;br&gt;field verification" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="users">
+          <mxGeometry x="15" y="375" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="u-auditor" value="&lt;b&gt;Auditor&lt;/b&gt;&lt;br&gt;reads the audit log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;" vertex="1" parent="users">
+          <mxGeometry x="15" y="450" width="170" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Browser SPA -->
+        <mxCell id="spa" value="&lt;b&gt;Browser: React 18 SPA&lt;/b&gt;&lt;br&gt;Vite, Tailwind, React Router" style="swimlane;html=1;rounded=1;fillColor=#E0F2FE;strokeColor=#0284C7;fontColor=#0C4A6E;startSize=40;" vertex="1" parent="1">
+          <mxGeometry x="270" y="90" width="270" height="560" as="geometry" />
+        </mxCell>
+        <mxCell id="spa-pages" value="&lt;b&gt;Pages&lt;/b&gt;&lt;br&gt;Campaigns and split donation&lt;br&gt;Donor / admin / auditor dashboards&lt;br&gt;AI Command Centre&lt;br&gt;Payment Agent (tick who gets paid)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0284C7;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="spa">
+          <mxGeometry x="15" y="55" width="240" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="spa-sdk" value="&lt;b&gt;PayPal JS SDK Buttons&lt;/b&gt;&lt;br&gt;buyer approves the order&lt;br&gt;in the PayPal popup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7E6;strokeColor=#003087;fontSize=11;" vertex="1" parent="spa">
+          <mxGeometry x="15" y="180" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="spa-studio" value="&lt;b&gt;AG Studio analytics&lt;/b&gt;&lt;br&gt;ag-studio-react dashboard&lt;br&gt;+ floating AI Assistant" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#059669;fontSize=11;" vertex="1" parent="spa">
+          <mxGeometry x="15" y="270" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="spa-pdf" value="&lt;b&gt;Tax receipt PDF&lt;/b&gt;&lt;br&gt;jsPDF, generated in the browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0284C7;fontSize=11;" vertex="1" parent="spa">
+          <mxGeometry x="15" y="360" width="240" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="spa-note" value="Only the PayPal client id reaches the browser.&lt;br&gt;Secrets, keys and the payout code stay on the server." style="text;html=1;whiteSpace=wrap;fontSize=10;fontColor=#475569;align=left;" vertex="1" parent="spa">
+          <mxGeometry x="15" y="430" width="240" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Render API -->
+        <mxCell id="render" value="&lt;b&gt;Render web service&lt;/b&gt;&lt;br&gt;Node.js + Express 5 API, serves the built SPA" style="swimlane;html=1;rounded=1;fillColor=#F5F3FF;strokeColor=#7C3AED;fontColor=#3B0764;startSize=40;" vertex="1" parent="1">
+          <mxGeometry x="600" y="90" width="430" height="660" as="geometry" />
+        </mxCell>
+        <mxCell id="api-auth" value="&lt;b&gt;JWT auth + role checks&lt;/b&gt; (bcrypt passwords)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="15" y="50" width="400" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="api-donations" value="&lt;b&gt;Donations&lt;/b&gt;&lt;br&gt;orders, split orders,&lt;br&gt;capture, admin refunds" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="15" y="100" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="api-payouts" value="&lt;b&gt;Payouts&lt;/b&gt;&lt;br&gt;draft, release, sync&lt;br&gt;unique sender_batch_id" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="225" y="100" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="api-gate" value="&lt;b&gt;Human approval gate&lt;/b&gt;&lt;br&gt;admin only + server-checked authorization code,&lt;br&gt;locks after 5 wrong codes, pays only ticked people" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=11;fontColor=#78350F;" vertex="1" parent="render">
+          <mxGeometry x="15" y="190" width="400" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="api-webhooks" value="&lt;b&gt;Webhooks&lt;/b&gt;&lt;br&gt;/api/webhooks/paypal&lt;br&gt;signature verified, idempotent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="15" y="265" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="api-ai" value="&lt;b&gt;AI agent tool loop&lt;/b&gt;&lt;br&gt;reads DB, drafts batches&lt;br&gt;&lt;i&gt;no release tool&lt;/i&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="225" y="265" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="api-studio" value="&lt;b&gt;AG Studio AI proxy&lt;/b&gt;&lt;br&gt;/api/ai/studio/responses&lt;br&gt;admin only, model allow-list" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="225" y="355" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="api-analytics" value="&lt;b&gt;Analytics API&lt;/b&gt;&lt;br&gt;read-only data for AG Studio" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="15" y="355" width="190" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="api-audit" value="&lt;b&gt;Audit log&lt;/b&gt;&lt;br&gt;every login, AI call, draft, release,&lt;br&gt;refund and webhook" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="15" y="445" width="400" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="db" value="&lt;b&gt;SQLite&lt;/b&gt; (node:sqlite)&lt;br&gt;campaigns, applications, donations,&lt;br&gt;payout batches, audit log - amounts in cents" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#EDE9FE;strokeColor=#7C3AED;fontSize=11;" vertex="1" parent="render">
+          <mxGeometry x="80" y="520" width="270" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- External services -->
+        <mxCell id="ext" value="&lt;b&gt;External services&lt;/b&gt;" style="swimlane;html=1;rounded=1;fillColor=#F8FAFC;strokeColor=#475569;fontColor=#0F172A;startSize=30;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="90" width="460" height="660" as="geometry" />
+        </mxCell>
+        <mxCell id="paypal" value="&lt;b&gt;PayPal sandbox&lt;/b&gt;&lt;br&gt;REST API, OAuth client credentials&lt;br&gt;Orders v2 (create, capture, multi purchase units)&lt;br&gt;Payments v2 refunds&lt;br&gt;Payouts v1 (batch create, show)&lt;br&gt;Webhooks + verify-webhook-signature" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7E6;strokeColor=#003087;strokeWidth=2;fontSize=11;fontColor=#001C64;" vertex="1" parent="ext">
+          <mxGeometry x="20" y="45" width="420" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="groq" value="&lt;b&gt;Groq&lt;/b&gt; - openai/gpt-oss-120b&lt;br&gt;OpenAI-compatible chat with tool calling&lt;br&gt;AI Command Centre + split suggestion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF1F2;strokeColor=#E11D48;fontSize=11;" vertex="1" parent="ext">
+          <mxGeometry x="20" y="230" width="420" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="bedrock" value="&lt;b&gt;Amazon Bedrock&lt;/b&gt; - Nova 2 Lite&lt;br&gt;us.amazon.nova-2-lite-v1:0, ConverseStream&lt;br&gt;AG Studio assistant only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#EA580C;fontSize=11;" vertex="1" parent="ext">
+          <mxGeometry x="20" y="355" width="420" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="iam" value="&lt;b&gt;IAM user&lt;/b&gt; reliefpay-render-bedrock&lt;br&gt;CloudFormation: infra/reliefpay-bedrock.yaml&lt;br&gt;may only invoke Nova 2 Lite" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#EA580C;fontSize=10;" vertex="1" parent="ext">
+          <mxGeometry x="20" y="455" width="420" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="postman" value="&lt;b&gt;Postman&lt;/b&gt;&lt;br&gt;public workspace with the ReliefPay API collection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF4ED;strokeColor=#FF6C37;fontSize=11;" vertex="1" parent="ext">
+          <mxGeometry x="20" y="560" width="420" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Edges -->
+        <mxCell id="e1" value="HTTPS" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#475569;fontSize=10;" edge="1" parent="1" source="users" target="spa">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="REST /api + JWT" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;strokeColor=#475569;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="spa-pages" target="api-auth">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="buyer approval" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;strokeColor=#003087;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0.5;entryY=0;" edge="1" parent="1" source="spa-sdk" target="paypal">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="405" y="75" />
+              <mxPoint x="1330" y="75" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" value="create / capture / refund" style="html=1;endArrow=block;strokeColor=#003087;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0;entryY=0.35;" edge="1" parent="1" source="api-donations" target="paypal">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="710" y="182" />
+              <mxPoint x="1070" y="182" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" value="Payouts v1&lt;br&gt;only after the gate" style="html=1;endArrow=block;strokeColor=#D97706;strokeWidth=2;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api-payouts" target="paypal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="webhook events" style="html=1;endArrow=block;dashed=1;strokeColor=#003087;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0;exitY=0.85;entryX=0.5;entryY=1;" edge="1" parent="1" source="paypal" target="api-webhooks">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1055" y="245" />
+              <mxPoint x="1055" y="438" />
+              <mxPoint x="710" y="438" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="tool calls" style="html=1;endArrow=block;strokeColor=#E11D48;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api-ai" target="groq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="ConverseStream" style="html=1;endArrow=block;strokeColor=#EA580C;fontSize=10;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api-studio" target="bedrock">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="" style="html=1;endArrow=none;dashed=1;strokeColor=#EA580C;" edge="1" parent="1" source="bedrock" target="iam">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="report data +&lt;br&gt;assistant requests" style="html=1;endArrow=block;strokeColor=#059669;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="spa-studio" target="api-analytics">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="570" y="395" />
+              <mxPoint x="570" y="482" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" value="" style="html=1;endArrow=block;strokeColor=#7C3AED;" edge="1" parent="1" source="api-audit" target="db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="tries the API" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;dashed=1;strokeColor=#FF6C37;fontSize=10;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;" edge="1" parent="1" source="postman" target="render">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1330" y="790" />
+              <mxPoint x="815" y="790" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="&lt;b&gt;Money flow:&lt;/b&gt; donor pays (Orders v2) - reviewer approves - AI or admin drafts a batch - admin ticks who gets paid and enters the code - PayPal Payouts - webhook updates status - audit log records every step." style="text;html=1;whiteSpace=wrap;fontSize=11;fontColor=#334155;align=left;" vertex="1" parent="1">
+          <mxGeometry x="20" y="670" width="520" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

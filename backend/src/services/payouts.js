@@ -179,6 +179,38 @@ export function draftPayoutBatch(db, config, { actor, userId, campaignId, applic
   return getPayoutBatch(db, batchId);
 }
 
+// Which items of the batch the admin ticked. `undefined` means every item (older
+// clients). A RELEASE_FAILED retry must send exactly the items already in the
+// batch, because unticked items were removed on the first attempt.
+function resolveSelection(batch, items, itemIds) {
+  if (itemIds === undefined) return { selected: items, removed: [] };
+  if (!Array.isArray(itemIds) || itemIds.length === 0 || !itemIds.every((id) => typeof id === 'string' && id !== '')) {
+    throw new HttpError(400, 'NO_BENEFICIARIES_SELECTED', 'Select at least one beneficiary to pay');
+  }
+  if (new Set(itemIds).size !== itemIds.length) {
+    throw new HttpError(400, 'DUPLICATE_ITEMS', 'Each beneficiary can be selected once');
+  }
+  const known = new Set(items.map((i) => i.id));
+  const unknown = itemIds.filter((id) => !known.has(id));
+  if (unknown.length > 0) {
+    throw new HttpError(400, 'ITEMS_NOT_IN_BATCH', 'Some selected beneficiaries are not in this batch', { offendingIds: unknown });
+  }
+  const chosen = new Set(itemIds);
+  const selected = items.filter((i) => chosen.has(i.id));
+  const removed = items.filter((i) => !chosen.has(i.id));
+  if (batch.status === 'RELEASE_FAILED' && removed.length > 0) {
+    throw new HttpError(409, 'SELECTION_LOCKED', 'A retry must pay the same beneficiaries as the first attempt');
+  }
+  return { selected, removed };
+}
+
+// PayPal rejects a sender_batch_id it saw in the last 30 days, and a re-seeded
+// database reuses batch ids such as PB-SEED-001, so the batch id alone is not
+// unique enough. Limit is 255 characters; this is about 30.
+function newSenderBatchId(batchId) {
+  return `${batchId}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+}
+
 function codesMatch(provided, expected) {
   const a = crypto.createHash('sha256').update(String(provided ?? '')).digest();
   const b = crypto.createHash('sha256').update(String(expected)).digest();
@@ -186,7 +218,7 @@ function codesMatch(provided, expected) {
 }
 
 // The only code path that sends money: POST /v1/payments/payouts.
-export async function releasePayoutBatch(db, paypal, config, { user, batchId, authCode }) {
+export async function releasePayoutBatch(db, paypal, config, { user, batchId, authCode, itemIds }) {
   if (user?.role !== 'ADMIN') throw new HttpError(403, 'FORBIDDEN', 'Only an ADMIN can release payouts');
   if (!config.payoutAuthCode) {
     throw new HttpError(503, 'PAYOUT_AUTH_NOT_CONFIGURED', 'PAYOUT_AUTH_CODE is not configured on the server');
@@ -219,7 +251,8 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
     throw new HttpError(403, 'INVALID_AUTH_CODE', 'Authorization code is incorrect');
   }
 
-  const items = getItems(db, batch.id);
+  const allItems = getItems(db, batch.id);
+  const { selected: items, removed } = resolveSelection(batch, allItems, itemIds);
   const notApproved = items.filter((i) => i.application_status !== 'APPROVED').map((i) => i.application_id);
   if (items.length === 0 || notApproved.length > 0) {
     throw new HttpError(409, 'APPLICATIONS_NOT_ELIGIBLE', 'Some applications are no longer approved', { offendingIds: notApproved });
@@ -233,9 +266,33 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
     });
   }
 
+  // The first release attempt stores a unique sender_batch_id; a retry of a
+  // RELEASE_FAILED batch reuses it so PayPal's dedup still blocks double pay.
+  const senderBatchId = batch.sender_batch_id || newSenderBatchId(batch.id);
   tx(db, () => {
     const now = new Date().toISOString();
-    db.prepare("UPDATE payout_batches SET status = 'RELEASING', updated_at = ? WHERE id = ?").run(now, batch.id);
+    // Unticked beneficiaries leave the batch, so their applications can be
+    // drafted into a later batch.
+    if (removed.length > 0) {
+      const del = db.prepare('DELETE FROM payout_items WHERE id = ? AND batch_id = ?');
+      for (const r of removed) del.run(r.id, batch.id);
+      writeAudit(db, {
+        actor,
+        action: 'PAYOUT_BENEFICIARIES_DESELECTED',
+        target: batchTarget(batch.id),
+        status: 'RECORDED',
+        details: {
+          removedApplicationIds: removed.map((r) => r.application_id),
+          paidApplicationIds: items.map((i) => i.application_id),
+        },
+      });
+    }
+    db.prepare("UPDATE payout_batches SET status = 'RELEASING', sender_batch_id = ?, total_cents = ?, updated_at = ? WHERE id = ?").run(
+      senderBatchId,
+      totalCents,
+      now,
+      batch.id,
+    );
     db.prepare("UPDATE payout_items SET status = 'PENDING', error = NULL, updated_at = ? WHERE batch_id = ?").run(now, batch.id);
   });
 
@@ -243,11 +300,14 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
   let res;
   try {
     res = await paypal.createPayoutBatch({
-      senderBatchId: batch.id,
+      senderBatchId,
       emailSubject: 'You have received ReliefPay disaster relief funds',
       emailMessage: `Relief payment from the campaign "${campaign?.title ?? batch.campaign_id}".`,
+      // Only the ticked beneficiaries. The sandbox override
+      // PAYOUT_RECEIVER_EMAIL applies to every item.
       items: items.map((i) => ({
         senderItemId: i.id,
+        recipientType: 'EMAIL',
         receiver: config.payoutReceiverEmail || i.receiver_email,
         amount: (i.amount_cents / 100).toFixed(2),
         currency: batch.currency,
@@ -288,7 +348,13 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
       action: 'PAYOUT_RELEASED',
       target: batchTarget(batch.id),
       status: 'VERIFIED',
-      details: { paypalBatchId, batchStatus: reported, totalAmount: toDollars(totalCents), itemCount: items.length },
+      details: {
+        paypalBatchId,
+        batchStatus: reported,
+        totalAmount: toDollars(totalCents),
+        itemCount: items.length,
+        paidApplicationIds: items.map((i) => i.application_id),
+      },
     });
   });
   return getPayoutBatch(db, batch.id);

@@ -170,6 +170,8 @@ export function openDb(filePath) {
   addColumnIfMissing(db, 'donations', 'refunded_cents', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing(db, 'donations', 'split_order_id', 'TEXT');
   db.exec('CREATE INDEX IF NOT EXISTS idx_donations_split ON donations(split_order_id)');
+  addColumnIfMissing(db, 'payout_batches', 'sender_batch_id', 'TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_payout_batches_sender ON payout_batches(sender_batch_id)');
   return db;
 }
 

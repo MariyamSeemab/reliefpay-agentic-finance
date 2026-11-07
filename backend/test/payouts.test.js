@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import request from 'supertest';
 import { loginAs, makeTestContext } from './helpers.js';
@@ -104,7 +104,10 @@ describe('payouts', () => {
 
     const posts = payoutPosts();
     assert.equal(posts.length, 1);
-    assert.equal(posts[0].body.sender_batch_header.sender_batch_id, 'PB-SEED-001');
+    const sentId = posts[0].body.sender_batch_header.sender_batch_id;
+    assert.match(sentId, /^PB-SEED-001-[a-z0-9]+-[0-9a-f]{6}$/);
+    assert.ok(sentId.length <= 255);
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, sentId);
     assert.equal(posts[0].body.sender_batch_header.recipient_type, 'EMAIL');
     assert.deepEqual(
       posts[0].body.items.map((i) => [i.receiver, i.sender_item_id, i.amount.value, i.amount.currency]),
@@ -148,10 +151,28 @@ describe('payouts', () => {
     assert.equal(retry.body.batch.status, 'PENDING');
     const posts = payoutPosts();
     assert.equal(posts.length, 2);
-    assert.deepEqual(
-      posts.map((p) => p.body.sender_batch_header.sender_batch_id),
-      ['PB-SEED-001', 'PB-SEED-001'],
-    );
+    const [first, second] = posts.map((p) => p.body.sender_batch_header.sender_batch_id);
+    assert.match(first, /^PB-SEED-001-/);
+    assert.equal(second, first);
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, first);
+  });
+
+  test('a re-seeded database sends a new sender_batch_id for the same batch id', async () => {
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    const firstId = payoutPosts()[0].body.sender_batch_header.sender_batch_id;
+
+    // A fresh seed (as on a Render restart) recreates PB-SEED-001 as DRAFT.
+    await setup();
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, null);
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    const secondId = payoutPosts()[0].body.sender_batch_header.sender_batch_id;
+    assert.match(secondId, /^PB-SEED-001-/);
+    assert.notEqual(secondId, firstId);
+  });
+
+  test('wrong code does not assign a sender_batch_id', async () => {
+    assert.equal((await release('PB-SEED-001', '000000')).status, 403);
+    assert.equal(batchRow('PB-SEED-001').sender_batch_id, null);
   });
 
   test('changing the approved amount of an application held by a batch -> 409', async () => {
@@ -181,6 +202,75 @@ describe('payouts', () => {
       payoutPosts()[0].body.items.map((i) => i.receiver),
       ['sandbox-personal@example.com', 'sandbox-personal@example.com'],
     );
+  });
+
+  const releaseSome = (id, itemIds, token = admin) =>
+    request(ctx.app).post(`/api/payouts/${id}/release`).set(bearer(token)).send({ authCode: CODE, itemIds });
+  const itemIdsOf = (batchId) => ctx.db.prepare('SELECT id FROM payout_items WHERE batch_id = ? ORDER BY rowid').all(batchId).map((r) => r.id);
+
+  test('selecting one beneficiary pays only that person and frees the other application', async () => {
+    const res = await releaseSome('PB-SEED-001', ['PI-SEED-001']);
+    assert.equal(res.status, 200);
+    assert.equal(payoutPosts().length, 1);
+    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.sender_item_id), ['PI-SEED-001']);
+    assert.equal(res.body.batch.beneficiaryCount, 1);
+    assert.equal(res.body.batch.totalAmount, 200);
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001']);
+    const audit = ctx.db.prepare("SELECT details_json FROM audit_logs WHERE action = 'PAYOUT_BENEFICIARIES_DESELECTED'").get();
+    assert.deepEqual(JSON.parse(audit.details_json).removedApplicationIds, ['RPA-2026-0021']);
+
+    // The unticked application can go into a new batch.
+    const redraft = await request(ctx.app)
+      .post('/api/payouts')
+      .set(bearer(admin))
+      .send({ campaignId: 'cmp-01', applicationIds: ['RPA-2026-0021'] });
+    assert.equal(redraft.status, 201);
+  });
+
+  test('empty, duplicate or foreign selections are rejected and nothing is sent', async () => {
+    const empty = await releaseSome('PB-SEED-001', []);
+    assert.equal(empty.status, 400);
+    assert.equal(empty.body.error, 'NO_BENEFICIARIES_SELECTED');
+    const dup = await releaseSome('PB-SEED-001', ['PI-SEED-001', 'PI-SEED-001']);
+    assert.equal(dup.status, 400);
+    assert.equal(dup.body.error, 'DUPLICATE_ITEMS');
+    const foreign = await releaseSome('PB-SEED-001', ['PI-SEED-001', 'PI-NOT-HERE']);
+    assert.equal(foreign.status, 400);
+    assert.equal(foreign.body.error, 'ITEMS_NOT_IN_BATCH');
+    assert.equal(payoutPosts().length, 0);
+    assert.equal(batchRow('PB-SEED-001').status, 'DRAFT');
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001', 'PI-SEED-002']);
+  });
+
+  test('a wrong code with a selection removes nobody', async () => {
+    const res = await request(ctx.app)
+      .post('/api/payouts/PB-SEED-001/release')
+      .set(bearer(admin))
+      .send({ authCode: 'bad', itemIds: ['PI-SEED-001'] });
+    assert.equal(res.status, 403);
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001', 'PI-SEED-002']);
+  });
+
+  test('a retry after RELEASE_FAILED must pay the same people', async () => {
+    fake.state.payoutError = 500;
+    assert.equal((await releaseSome('PB-SEED-001', ['PI-SEED-001'])).status, 502);
+    assert.equal(batchRow('PB-SEED-001').status, 'RELEASE_FAILED');
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001']);
+    delete fake.state.payoutError;
+
+    const changed = await releaseSome('PB-SEED-001', ['PI-SEED-001', 'PI-SEED-002']);
+    assert.equal(changed.status, 400);
+    assert.equal(changed.body.error, 'ITEMS_NOT_IN_BATCH');
+
+    const retry = await releaseSome('PB-SEED-001', ['PI-SEED-001']);
+    assert.equal(retry.status, 200);
+    assert.equal(payoutPosts()[0].body.sender_batch_header.sender_batch_id, payoutPosts()[1].body.sender_batch_header.sender_batch_id);
+  });
+
+  test('no itemIds field pays everyone in the batch (older clients keep working)', async () => {
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.sender_item_id), ['PI-SEED-001', 'PI-SEED-002']);
+    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.recipient_type), ['EMAIL', 'EMAIL']);
   });
 
   test('5 wrong codes -> 423 on the 6th try, even with the right code', async () => {

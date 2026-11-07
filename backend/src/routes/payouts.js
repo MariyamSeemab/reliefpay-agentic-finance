@@ -30,6 +30,8 @@ export function payoutsRouter({ db, config, paypal }) {
       user: req.user,
       batchId: req.params.id,
       authCode: req.body?.authCode,
+      // Payout item ids the admin ticked; omitted = pay everyone in the batch.
+      itemIds: req.body?.itemIds,
     });
     res.json({ batch });
   });

@@ -271,6 +271,23 @@ describe('AI suggest split', () => {
     assert.equal(c.calls.filter((x) => x.client === 'paypal').length, 0);
   });
 
+  test('model receives precomputed fundedPercent and remaining, and is told to quote them', async () => {
+    const { c, t, groq } = await withGroq(GOOD);
+    const res = await request(c.app).post('/api/ai/suggest-split').set(bearer(t)).send({ amount: 50 });
+    assert.equal(res.status, 200);
+    const sent = groq.requests[0];
+    const listed = JSON.parse(sent.messages[1].content).campaigns;
+    for (const x of listed) {
+      const row = c.db.prepare('SELECT target_cents, raised_cents FROM campaigns WHERE id = ?').get(x.id);
+      assert.equal(x.fundedPercent, Math.round((row.raised_cents / row.target_cents) * 1000) / 10);
+      assert.equal(x.remaining, Math.max(0, row.target_cents - row.raised_cents) / 100);
+      // Funded share, not the remaining share that F1 misreported.
+      assert.ok(Math.abs(x.fundedPercent - (100 - (x.remaining / x.target) * 100)) < 0.1);
+    }
+    assert.match(sent.messages[0].content, /fundedPercent/);
+    assert.match(sent.messages[0].content, /quote only those fundedPercent and remaining values/);
+  });
+
   const bad = [
     ['unknown campaign id', { ...GOOD, allocations: [{ campaignId: 'cmp-01', percent: 70 }, { campaignId: 'cmp-77', percent: 30 }] }],
     ['sum 90', { ...GOOD, allocations: [{ campaignId: 'cmp-01', percent: 60 }, { campaignId: 'cmp-02', percent: 30 }] }],

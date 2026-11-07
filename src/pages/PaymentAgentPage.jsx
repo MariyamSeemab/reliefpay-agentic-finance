@@ -15,6 +15,9 @@ const RELEASE_ERRORS = {
   PAYOUT_AUTH_NOT_CONFIGURED: 'Payout authorization is not configured on the server (PAYOUT_AUTH_CODE is missing).',
   PAYPAL_NOT_CONFIGURED: 'PayPal sandbox credentials are not configured on the server.',
   BATCH_NOT_RELEASABLE: 'This batch can no longer be released.',
+  NO_BENEFICIARIES_SELECTED: 'Select at least one beneficiary to pay.',
+  ITEMS_NOT_IN_BATCH: 'The selection is out of date. Reload the page and try again.',
+  SELECTION_LOCKED: 'A retry must pay the same beneficiaries as the first attempt.',
   INSUFFICIENT_FUNDS: 'The campaign no longer has enough available funds for this batch.',
 };
 
@@ -39,6 +42,8 @@ export default function PaymentAgentPage() {
   const [releaseError, setReleaseError] = useState('');
   const [releasedBatch, setReleasedBatch] = useState(null);
   const [syncState, setSyncState] = useState({});
+  // batchId -> array of ticked payout item ids. Missing = everyone ticked.
+  const [selection, setSelection] = useState({});
 
   const loadBatches = useCallback(async () => {
     try {
@@ -91,7 +96,12 @@ export default function PaymentAgentPage() {
     try {
       const { batch } = await apiFetch(`/payouts/${encodeURIComponent(selectedPayout.id)}/release`, {
         method: 'POST',
-        body: { authCode },
+        body: { authCode, itemIds: selectedIds(selectedPayout) },
+      });
+      setSelection((prev) => {
+        const next = { ...prev };
+        delete next[batch.id];
+        return next;
       });
       setReleasedBatch(batch);
       setAuthCode('');
@@ -115,6 +125,25 @@ export default function PaymentAgentPage() {
     } catch (err) {
       setSyncState((prev) => ({ ...prev, [batchId]: { loading: false, error: err.message || 'Sync failed' } }));
     }
+  };
+
+  // Who gets paid. Only a DRAFT batch can change; a RELEASE_FAILED retry pays
+  // the same people (the server enforces both).
+  const selectedIds = (payout) => selection[payout.id] ?? payout.items.map((i) => i.id);
+  const selectedItems = (payout) => {
+    const ids = new Set(selectedIds(payout));
+    return payout.items.filter((i) => ids.has(i.id));
+  };
+  const selectedTotal = (payout) => selectedItems(payout).reduce((sum, i) => sum + Number(i.amount || 0), 0);
+  const toggleItem = (payout, itemId) => {
+    const current = new Set(selectedIds(payout));
+    if (current.has(itemId)) current.delete(itemId);
+    else current.add(itemId);
+    setSelection((prev) => ({ ...prev, [payout.id]: payout.items.map((i) => i.id).filter((id) => current.has(id)) }));
+  };
+  const toggleAll = (payout) => {
+    const allTicked = selectedIds(payout).length === payout.items.length;
+    setSelection((prev) => ({ ...prev, [payout.id]: allTicked ? [] : payout.items.map((i) => i.id) }));
   };
 
   const getStatusBadge = (status) => {
@@ -269,6 +298,16 @@ export default function PaymentAgentPage() {
                   <table className="w-full text-sm">
                     <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
+                        <th className="px-4 py-2 text-left w-10">
+                          <input
+                            type="checkbox"
+                            aria-label="Select all beneficiaries"
+                            checked={selectedIds(payout).length === payout.items.length && payout.items.length > 0}
+                            onChange={() => toggleAll(payout)}
+                            disabled={payout.status !== 'DRAFT'}
+                            className="w-4 h-4 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed"
+                          />
+                        </th>
                         <th className="px-4 py-2 text-left font-semibold text-slate-900">App ID</th>
                         <th className="px-4 py-2 text-left font-semibold text-slate-900">Beneficiary</th>
                         <th className="px-4 py-2 text-right font-semibold text-slate-900">Amount</th>
@@ -277,8 +316,20 @@ export default function PaymentAgentPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {payout.items.map(item => (
-                        <tr key={item.id} className="border-b border-slate-200 hover:bg-slate-50">
+                      {payout.items.map(item => {
+                        const ticked = selectedIds(payout).includes(item.id);
+                        return (
+                        <tr key={item.id} className={`border-b border-slate-200 hover:bg-slate-50 ${ticked ? '' : 'opacity-50'}`}>
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              aria-label={`Pay ${item.beneficiaryName}`}
+                              checked={ticked}
+                              onChange={() => toggleItem(payout, item.id)}
+                              disabled={payout.status !== 'DRAFT'}
+                              className="w-4 h-4 accent-emerald-600 cursor-pointer disabled:cursor-not-allowed"
+                            />
+                          </td>
                           <td className="px-4 py-3 font-mono text-blue-600">{item.applicationId}</td>
                           <td className="px-4 py-3">
                             {item.beneficiaryName}
@@ -306,19 +357,26 @@ export default function PaymentAgentPage() {
                             )}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
+                  <p className="text-sm text-slate-700 mt-3">
+                    Paying <span className="font-semibold">{selectedItems(payout).length}</span> of {payout.items.length} beneficiaries,{' '}
+                    <span className="font-semibold">{formatMoney(selectedTotal(payout), payout.currency)}</span>.
+                    {payout.status === 'DRAFT' && ' Unticked beneficiaries are removed from this batch and can be paid in a later one.'}
+                  </p>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="flex gap-3">
                   <button
                     onClick={() => handleAuthorize(payout)}
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+                    disabled={selectedItems(payout).length === 0}
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-lg font-semibold transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Lock className="w-5 h-5" />
-                    Authorize Payout
+                    Authorize Payout ({selectedItems(payout).length})
                   </button>
                 </div>
               </div>
@@ -422,11 +480,15 @@ export default function PaymentAgentPage() {
               </div>
               <div className="flex justify-between mb-3">
                 <span className="text-slate-700">Total Amount</span>
-                <span className="text-2xl font-bold text-emerald-600">{formatMoney(selectedPayout.totalAmount, selectedPayout.currency)}</span>
+                <span className="text-2xl font-bold text-emerald-600">
+                  {formatMoney(releasedBatch ? releasedBatch.totalAmount : selectedTotal(selectedPayout), selectedPayout.currency)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-700">Beneficiaries</span>
-                <span className="font-semibold text-slate-900">{selectedPayout.beneficiaryCount}</span>
+                <span className="font-semibold text-slate-900">
+                  {releasedBatch ? releasedBatch.beneficiaryCount : `${selectedItems(selectedPayout).length} of ${selectedPayout.items.length}`}
+                </span>
               </div>
             </div>
 
@@ -451,7 +513,7 @@ export default function PaymentAgentPage() {
             ) : (
               <>
                 <p className="text-sm text-slate-600 mb-4">
-                  ⚠️ This action will initiate a PayPal batch payout. You are authorizing the transfer of {formatMoney(selectedPayout.totalAmount, selectedPayout.currency)} to {selectedPayout.beneficiaryCount} verified beneficiaries.
+                  ⚠️ This action will initiate a PayPal batch payout. You are authorizing the transfer of {formatMoney(selectedTotal(selectedPayout), selectedPayout.currency)} to {selectedItems(selectedPayout).length} selected beneficiaries: {selectedItems(selectedPayout).map((i) => i.beneficiaryName).join(', ')}.
                 </p>
 
                 <div className="mb-4">

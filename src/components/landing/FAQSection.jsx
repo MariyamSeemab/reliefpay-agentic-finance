@@ -65,13 +65,6 @@ export const FAQSection = () => {
         ))}
       </div>
 
-      {/* Contact Support */}
-      <div className="bg-gradient-to-r from-[#087E83]/5 to-[#16845B]/5 border border-slate-200 rounded-lg p-4 text-center">
-        <p className="text-sm text-slate-700 mb-3">Didn't find your answer?</p>
-        <button className="text-[#087E83] font-semibold text-sm hover:underline">
-          Contact our support team →
-        </button>
-      </div>
     </div>
   );
 };

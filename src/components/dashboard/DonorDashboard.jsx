@@ -3,11 +3,27 @@ import { Heart, TrendingUp, Award, Calendar, BarChart3, Download } from 'lucide-
 import { INITIAL_DONATIONS } from '../../data/mockData';
 import { apiFetch } from '../../lib/api';
 import { formatMoney } from '../../lib/money';
+import { downloadTaxReceipts } from '../../lib/taxReceipt';
 
 export const DonorDashboard = ({ currentUser }) => {
   // The API has no per-donor donation history yet, so the list stays demo data (USD).
   const [donations] = useState(INITIAL_DONATIONS);
   const [campaigns, setCampaigns] = useState([]);
+  const [downloading, setDownloading] = useState(null);
+  const [downloadError, setDownloadError] = useState('');
+
+  // A single donation or the whole list; the PDF library loads on first use.
+  const downloadReceipt = async (target) => {
+    setDownloading(Array.isArray(target) ? 'all' : target.id);
+    setDownloadError('');
+    try {
+      await downloadTaxReceipts(target, { donorName: currentUser?.name });
+    } catch (err) {
+      setDownloadError(err.message || 'Could not create the receipt PDF');
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -86,6 +102,15 @@ export const DonorDashboard = ({ currentUser }) => {
                   <p className="font-bold text-slate-900">{formatMoney(donation.amount)}</p>
                   <p className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded inline-block mt-1">{donation.status}</p>
                 </div>
+                <button
+                  onClick={() => downloadReceipt(donation)}
+                  disabled={downloading !== null}
+                  title="Download tax receipt (PDF)"
+                  aria-label={`Download tax receipt for ${donation.id}`}
+                  className="ml-4 p-2 rounded-lg border border-slate-200 text-emerald-700 hover:bg-emerald-50 transition disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
               </div>
             ))}
           </div>
@@ -122,10 +147,16 @@ export const DonorDashboard = ({ currentUser }) => {
             </div>
           </div>
 
-          <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2">
+          <button
+            onClick={() => downloadReceipt(donations)}
+            disabled={downloading !== null}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
+          >
             <Download className="w-4 h-4" />
-            Download Tax Receipt
+            {downloading === 'all' ? 'Preparing PDF…' : 'Download Tax Receipt'}
           </button>
+          <p className="text-xs text-slate-500 text-center">One PDF page per donation. Use the download icon on a donation for a single receipt.</p>
+          {downloadError && <p className="text-xs text-red-600 text-center">{downloadError}</p>}
         </div>
       </div>
 

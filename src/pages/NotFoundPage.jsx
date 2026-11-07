@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Home, ArrowLeft } from 'lucide-react';
+import { BrandLogo } from '../components/common/BrandLogo';
 
 export default function NotFoundPage() {
   const navigate = useNavigate();
@@ -8,6 +9,7 @@ export default function NotFoundPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center px-4">
       <div className="text-center space-y-6 max-w-md">
+        <div className="flex justify-center"><BrandLogo className="h-16" /></div>
         <div className="w-20 h-20 bg-white/10 rounded-2xl flex items-center justify-center mx-auto">
           <AlertCircle className="w-10 h-10 text-yellow-400" />
         </div>
