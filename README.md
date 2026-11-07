@@ -17,6 +17,14 @@ ReliefPay is a disaster-relief platform where donors fund campaigns through PayP
 
 Wired to the API: login/signup, campaigns, single and split donations, the admin dashboard totals and charts, AI Command Centre, Payment Agent, the analytics page and refunds, application management, and the auditor dashboard and audit log. The donor dashboard mixes API data with sample data. Still showing mock data: the beneficiary and volunteer dashboards, AI verification, beneficiary registration and emergency application, and the map.
 
+## End-to-end test report
+
+A Playwright run against the live Render deployment (PayPal sandbox, Groq and Amazon Bedrock) is documented in [docs/E2E_TEST_REPORT.md](docs/E2E_TEST_REPORT.md), with screenshots in [docs/e2e/](docs/e2e/).
+
+| AG Studio assistant on Amazon Bedrock | Split donation with AI suggestion |
+|---|---|
+| ![AG Studio assistant answer](docs/e2e/10-ag-studio-assistant-bedrock-q1.png) | ![Split donation](docs/e2e/04-split-paypal-buttons.png) |
+
 ## Screenshots
 
 Captured with Playwright against a local run (`npm run build` then `npm start --prefix backend`) using PayPal sandbox and Groq credentials.
