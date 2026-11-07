@@ -34,3 +34,7 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: AG_STUDIO_LICENSE
+        sync: false
+      - key: AG_STUDIO_AI
+        sync: false
