@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { aiRouter } from './routes/ai.js';
+import { analyticsRouter } from './routes/analytics.js';
 import { applicationsRouter } from './routes/applications.js';
 import { auditRouter } from './routes/audit.js';
 import { authRouter } from './routes/auth.js';
@@ -16,7 +17,10 @@ import { PayPalError } from './services/paypalClient.js';
 export function createApp({ db, config, paypal = null, groq = null }) {
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '100kb' }));
+  // The AG Studio assistant proxy authenticates first, then parses up to 1 MB
+  // itself (routes/ai.js); every other route keeps the 100 kb limit.
+  const jsonParser = express.json({ limit: '100kb' });
+  app.use((req, res, next) => (req.path.startsWith('/api/ai/studio/') ? next() : jsonParser(req, res, next)));
 
   const deps = { db, config, paypal, groq };
   app.use('/api', metaRouter(deps));
@@ -25,6 +29,7 @@ export function createApp({ db, config, paypal = null, groq = null }) {
   app.use('/api', applicationsRouter(deps));
   app.use('/api', auditRouter(deps));
   app.use('/api', donationsRouter(deps));
+  app.use('/api', analyticsRouter(deps));
   app.use('/api', payoutsRouter(deps));
   app.use('/api', webhooksRouter(deps));
   app.use('/api', aiRouter(deps));

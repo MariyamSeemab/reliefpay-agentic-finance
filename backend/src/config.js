@@ -49,5 +49,12 @@ export function readConfig(env = process.env) {
       baseUrl: nonEmpty(env.GROQ_BASE_URL) || 'https://api.groq.com/openai/v1',
       model: nonEmpty(env.GROQ_MODEL) || 'openai/gpt-oss-120b',
     },
+    agStudio: {
+      licenseKey: nonEmpty(env.AG_STUDIO_LICENSE),
+      // Off unless AG_STUDIO_AI=on: one AG Studio turn sends ~5.4k input tokens, so on
+      // Groq's on_demand tier (8,000 TPM for openai/gpt-oss-120b) the second turn of a
+      // chat gets HTTP 429 before a reply arrives. Enable it on a tier with more TPM.
+      aiEnabled: nonEmpty(env.AG_STUDIO_AI)?.toLowerCase() === 'on',
+    },
   };
 }

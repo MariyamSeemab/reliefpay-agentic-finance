@@ -82,5 +82,22 @@ export function createGroqClient({ apiKey, baseUrl, model, fetch = globalThis.fe
     return message;
   }
 
-  return { isConfigured, model, chat, complete };
+  // Streaming Responses API call for the AG Studio assistant proxy. Returns the
+  // raw fetch Response so the caller can pipe the SSE body; the caller builds
+  // the (allow-listed) body and handles non-2xx statuses.
+  async function responsesStream({ body, signal }) {
+    if (!isConfigured) throw new GroqError(503, 'GROQ_API_KEY is not configured');
+    try {
+      return await fetch(`${baseUrl}/responses`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      });
+    } catch (err) {
+      throw new GroqError(0, `Network error calling Groq: ${err.message}`);
+    }
+  }
+
+  return { isConfigured, model, chat, complete, responsesStream };
 }
