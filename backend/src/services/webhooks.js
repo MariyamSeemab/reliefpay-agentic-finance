@@ -2,8 +2,11 @@ import { PAYPAL_WEBHOOK_ACTOR, writeAudit } from '../audit.js';
 import { HttpError } from '../errors.js';
 import { markDonationCompleted } from './donations.js';
 import { applyPayoutBatchStatus, applyPayoutItemStatus } from './payouts.js';
+import { applyRefund, captureIdFromLinks } from './refunds.js';
+import { refreshSplitStatus } from './splitDonations.js';
 
 const CAPTURE_FAILED_EVENTS = ['PAYMENT.CAPTURE.DENIED', 'PAYMENT.CAPTURE.DECLINED'];
+const REFUND_EVENTS = ['PAYMENT.CAPTURE.REFUNDED', 'PAYMENT.CAPTURE.REVERSED'];
 const BATCH_EVENTS = ['PAYMENT.PAYOUTSBATCH.SUCCESS', 'PAYMENT.PAYOUTSBATCH.DENIED', 'PAYMENT.PAYOUTSBATCH.PROCESSING'];
 const ITEM_EVENTS = [
   'PAYMENT.PAYOUTS-ITEM.SUCCEEDED',
@@ -49,11 +52,41 @@ function dispatch(db, event) {
 
   if (type === 'PAYMENT.CAPTURE.COMPLETED') {
     const donation = findDonationForCapture(db, resource);
-    if (donation) markDonationCompleted(db, donation.id, { captureId: resource.id, amountCents: centsFromValue(resource.amount?.value) });
+    if (donation) {
+      markDonationCompleted(db, donation.id, { captureId: resource.id, amountCents: centsFromValue(resource.amount?.value) });
+      if (donation.split_order_id) refreshSplitStatus(db, donation.split_order_id);
+    }
   } else if (CAPTURE_FAILED_EVENTS.includes(type)) {
     const donation = findDonationForCapture(db, resource);
     if (donation && donation.status !== 'COMPLETED') {
       db.prepare("UPDATE donations SET status = 'FAILED', updated_at = ? WHERE id = ?").run(new Date().toISOString(), donation.id);
+      if (donation.split_order_id) refreshSplitStatus(db, donation.split_order_id);
+    }
+  } else if (REFUND_EVENTS.includes(type)) {
+    // The resource is a refund: id = refund id, amount = this refund only,
+    // links[rel=up] points at the refunded capture.
+    const captureId = captureIdFromLinks(resource.links);
+    const amountCents = centsFromValue(resource.amount?.value);
+    if (resource.id && captureId && amountCents !== undefined) {
+      const r = applyRefund(db, {
+        refundId: resource.id,
+        captureId,
+        amountCents,
+        currency: resource.amount?.currency_code,
+        status: resource.status,
+        source: 'WEBHOOK',
+        eventType: type,
+        note: resource.note_to_payer,
+      });
+      if (r.applied > 0) {
+        writeAudit(db, {
+          actor: PAYPAL_WEBHOOK_ACTOR,
+          action: 'DONATION_REFUND_APPLIED',
+          target: `Donation ${r.donation.id}`,
+          status: 'VERIFIED',
+          details: { refundId: resource.id, captureId, donationId: r.donation.id, amount: r.applied / 100, eventType: type },
+        });
+      }
     }
   } else if (BATCH_EVENTS.includes(type)) {
     applyPayoutBatchStatus(db, resource.batch_header?.payout_batch_id, resource.batch_header?.batch_status);

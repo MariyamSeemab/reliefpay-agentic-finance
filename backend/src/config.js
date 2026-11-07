@@ -49,5 +49,19 @@ export function readConfig(env = process.env) {
       baseUrl: nonEmpty(env.GROQ_BASE_URL) || 'https://api.groq.com/openai/v1',
       model: nonEmpty(env.GROQ_MODEL) || 'openai/gpt-oss-120b',
     },
+    agStudio: {
+      licenseKey: nonEmpty(env.AG_STUDIO_LICENSE),
+      // Off unless AG_STUDIO_AI=on: one AG Studio turn sends ~5.4k input tokens, so on
+      // Groq's on_demand tier (8,000 TPM for openai/gpt-oss-120b) the second turn of a
+      // chat gets HTTP 429 before a reply arrives. Enable it on a tier with more TPM.
+      aiEnabled: nonEmpty(env.AG_STUDIO_AI)?.toLowerCase() === 'on',
+      // groq (default) or bedrock. Only the AG Studio assistant uses this; the AI
+      // Command Centre and split suggestions always use Groq.
+      aiProvider: nonEmpty(env.AG_STUDIO_AI_PROVIDER)?.toLowerCase() === 'bedrock' ? 'bedrock' : 'groq',
+      bedrock: {
+        model: nonEmpty(env.AG_STUDIO_BEDROCK_MODEL) || 'us.amazon.nova-2-lite-v1:0',
+        region: nonEmpty(env.AWS_REGION) || 'us-east-1',
+      },
+    },
   };
 }

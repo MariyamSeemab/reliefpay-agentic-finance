@@ -219,6 +219,14 @@ export default function DashboardPage() {
                 >
                   Payment Agent
                 </button>
+                {currentUser?.role === 'ADMIN' && (
+                  <button
+                    onClick={() => navigate('/admin/analytics')}
+                    className="w-full px-4 py-2 text-left rounded-lg text-sm font-medium transition text-slate-900 hover:bg-slate-100 border border-slate-200"
+                  >
+                    Analytics
+                  </button>
+                )}
               </div>
             )}
 

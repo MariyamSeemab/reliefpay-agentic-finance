@@ -575,6 +575,51 @@ curl -X POST http://localhost:5000/api/applications \
 
 ---
 
-**Last Updated:** October 30, 2026
+## 🔀 Split Donations, Refunds and Analytics (implemented)
+
+| Method | Endpoint | Description | Auth | Role |
+|--------|----------|-------------|------|------|
+| POST | `/api/donations/split-orders` | One PayPal order, one purchase unit per campaign (2 to 10) | JWT | Any signed-in |
+| POST | `/api/donations/split-orders/:orderId/capture` | Capture an approved split order | JWT | Any signed-in |
+| POST | `/api/donations/:id/refund` | Full or partial PayPal refund of a captured donation | JWT | ADMIN |
+| POST | `/api/ai/suggest-split` | AI proposes split percentages (proposal only) | JWT | Any signed-in |
+| GET | `/api/analytics` | Data for the AG Studio analytics page | JWT | ADMIN/AUDITOR |
+| POST | `/api/ai/studio/responses` | Groq Responses proxy for the AG Studio assistant (off unless `AG_STUDIO_AI=on`) | JWT | ADMIN |
+
+**Request Body Examples:**
+
+Split order (each amount 1 to 10000 with 2 decimals, total at most 10000):
+```json
+{
+  "allocations": [
+    { "campaignId": "cmp-01", "amount": 15 },
+    { "campaignId": "cmp-02", "amount": 10 }
+  ],
+  "aiSuggested": false
+}
+```
+Response `201`: `{ "orderId", "splitId", "donationIds": [] }`. Errors: 400 `INVALID_SPLIT`, 400 `INVALID_AMOUNT`, 404 `NOT_FOUND`, 409 `CAMPAIGN_NOT_ACTIVE`, 503 `PAYPAL_NOT_CONFIGURED`, 502 `PAYPAL_ERROR`.
+
+Split capture response `200`: `{ "split": { id, orderId, status (PENDING|COMPLETED|PARTIALLY_COMPLETED|FAILED), total, currency, aiSuggested, donations: [] }, "campaigns": [] }`.
+
+Refund (omit `amount` for a full refund of the remaining amount; `note` up to 255 characters):
+```json
+{ "amount": 10, "note": "Donor request" }
+```
+Response `200`: `{ "refund": { id, donationId, captureId, amount, appliedAmount, currency, status, source, eventType, note }, "donation": {}, "campaign": {} }`. Errors: 404 `NOT_FOUND`, 409 `DONATION_NOT_REFUNDABLE`, 400 `INVALID_AMOUNT`, 400 `REFUND_EXCEEDS_REMAINING`, 400 `INVALID_NOTE`, 503 `PAYPAL_NOT_CONFIGURED`, 502 `PAYPAL_ERROR`.
+
+Suggest split:
+```json
+{ "amount": 50 }
+```
+Response `200`: `{ "allocations": [{ campaignId, title, percent }], "rationale", "model" }`. Errors: 400 `INVALID_AMOUNT`, 409 `NOT_ENOUGH_CAMPAIGNS`, 503 `AI_NOT_CONFIGURED`, 503 `AI_RATE_LIMITED`, 502 `AI_INVALID_SUGGESTION`, 502 `AI_ERROR`.
+
+Analytics response `200`: `{ asOf, currency, campaigns: [], donations: [], donors: [], refunds: [], payoutBatches: [], payoutItems: [], studio: { licenseKey, aiEnabled, aiModels } }`. `payoutItems` carry `{ id, batchId, applicationId, amount, status }` (no beneficiary names); `licenseKey` is `null` for AUDITOR.
+
+Studio proxy: body is an OpenAI Responses request (`input` array required, `model` must be `GROQ_MODEL`); the API forwards only allow-listed fields with `stream: true` and `max_output_tokens: 8192`, and streams the SSE back. 400/503 errors use `{ "error": { "message" } }`.
+
+---
+
+**Last Updated:** November 7, 2026
 **Version:** 1.0
 

@@ -67,7 +67,7 @@ export function createPayPalClient({ clientId, clientSecret, apiBase, fetch = gl
     return cachedToken;
   }
 
-  async function call(method, path, { body, requestId } = {}) {
+  async function call(method, path, { body, requestId, prefer } = {}) {
     const token = await getAccessToken();
     const headers = {
       Authorization: `Bearer ${token}`,
@@ -75,6 +75,7 @@ export function createPayPalClient({ clientId, clientSecret, apiBase, fetch = gl
       Accept: 'application/json',
     };
     if (requestId) headers['PayPal-Request-Id'] = requestId;
+    if (prefer) headers.Prefer = prefer;
     return send(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   }
 
@@ -99,8 +100,39 @@ export function createPayPalClient({ clientId, clientSecret, apiBase, fetch = gl
       });
     },
 
+    // One order with one purchase unit per campaign (Orders v2 allows 1 to 10
+    // purchase_units). reference_id = campaign id, custom_id = donation id.
+    createSplitOrder({ units, currency, requestId }) {
+      return call('POST', '/v2/checkout/orders', {
+        requestId,
+        body: {
+          intent: 'CAPTURE',
+          purchase_units: units.map((u) => ({
+            reference_id: u.campaignId,
+            custom_id: u.donationId,
+            description: String(u.description || '').slice(0, 127),
+            amount: { currency_code: currency, value: u.amount },
+          })),
+        },
+      });
+    },
+
     captureOrder(orderId, requestId) {
       return call('POST', `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { requestId, body: {} });
+    },
+
+    // POST /v2/payments/captures/{capture_id}/refund. Omitting amount refunds
+    // the captured amount minus previous refunds. return=representation makes
+    // the response carry the refund amount.
+    refundCapture(captureId, { amount, currency, note, requestId } = {}) {
+      const body = {};
+      if (amount !== undefined) body.amount = { currency_code: currency, value: amount };
+      if (typeof note === 'string' && note !== '') body.note_to_payer = String(note).slice(0, 255);
+      return call('POST', `/v2/payments/captures/${encodeURIComponent(captureId)}/refund`, {
+        requestId,
+        prefer: 'return=representation',
+        body,
+      });
     },
 
     createPayoutBatch({ senderBatchId, emailSubject, emailMessage, items }) {

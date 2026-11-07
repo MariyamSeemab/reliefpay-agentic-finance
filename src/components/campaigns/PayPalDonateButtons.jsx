@@ -4,7 +4,7 @@ import { apiFetch } from '../../lib/api';
 import { loadPayPalSdk } from '../../lib/paypalSdk';
 
 let configPromise = null;
-function getPublicConfig() {
+export function getPublicConfig() {
   if (!configPromise) {
     configPromise = apiFetch('/config', { auth: false }).catch((err) => {
       configPromise = null;

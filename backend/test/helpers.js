@@ -1,6 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import request from 'supertest';
+import { createBedrockStudioClient } from '../src/ai/bedrockStudio.js';
 import { createGroqClient } from '../src/ai/groqClient.js';
 import { createApp } from '../src/app.js';
 import { readConfig } from '../src/config.js';
@@ -27,7 +28,9 @@ function recordingFetch(name, impl, calls) {
 // network: tests pass fake fetch implementations, and every call is recorded in
 // `calls`. The PayPal client is built from fetches.paypal (see paypal-fake.js)
 // and the Groq client from fetches.groq (see groq-fake.js).
-export function makeTestContext({ configOverrides = {}, paypalFetch, groqFetch } = {}) {
+// `bedrockClient` is a fake Bedrock Runtime client (async send(command)); it is
+// used only when the overrides set AG_STUDIO_AI_PROVIDER=bedrock.
+export function makeTestContext({ configOverrides = {}, paypalFetch, groqFetch, bedrockClient } = {}) {
   const config = readConfig({
     JWT_SECRET: 'test-secret',
     PAYOUT_AUTH_CODE: '246810',
@@ -50,8 +53,15 @@ export function makeTestContext({ configOverrides = {}, paypalFetch, groqFetch }
 
   const paypal = createPayPalClient({ ...config.paypal, fetch: fetches.paypal });
   const groq = createGroqClient({ ...config.groq, fetch: fetches.groq });
-  const app = createApp({ db, config, paypal, groq });
-  return { app, db, config, calls, fetches, paypal, groq };
+  const bedrockStudio =
+    config.agStudio.aiProvider === 'bedrock'
+      ? createBedrockStudioClient({
+          ...config.agStudio.bedrock,
+          client: bedrockClient ?? { send: async () => { throw new Error('Unexpected Bedrock call in test'); } },
+        })
+      : null;
+  const app = createApp({ db, config, paypal, groq, bedrockStudio });
+  return { app, db, config, calls, fetches, paypal, groq, bedrockStudio };
 }
 
 export async function loginAs(app, email) {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -17,6 +17,9 @@ import ApplicationManagementPage from './pages/ApplicationManagementPage';
 import AIVerificationPage from './pages/AIVerificationPage';
 import AICommandCentrePage from './pages/AICommandCentrePage';
 import PaymentAgentPage from './pages/PaymentAgentPage';
+
+// AG Studio is large: the analytics page loads in its own chunk.
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 
 // Legacy components (kept for compatibility)
 import { ReliefMap } from './components/map/ReliefMap';
@@ -95,6 +98,17 @@ export default function App() {
             element={
               <ProtectedRoute requiredRoles={['ADMIN']}>
                 <PaymentAgentPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/analytics"
+            element={
+              <ProtectedRoute requiredRoles={['ADMIN']}>
+                <Suspense fallback={<div className="p-8 text-slate-600">Loading analytics…</div>}>
+                  <AnalyticsPage />
+                </Suspense>
               </ProtectedRoute>
             }
           />
