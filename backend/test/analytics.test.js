@@ -45,7 +45,13 @@ describe('GET /api/analytics', () => {
       const items = res.body.payoutItems.filter((i) => i.batchId === 'PB-SEED-001');
       assert.equal(items.length, batch.itemCount);
       assert.ok(items.length > 0);
-      assert.ok(items.every((i) => typeof i.beneficiaryName === 'string'));
+      // No beneficiary PII: only ids, amount and status.
+      for (const item of items) {
+        assert.deepEqual(Object.keys(item).sort(), ['amount', 'applicationId', 'batchId', 'id', 'status']);
+        assert.ok(item.applicationId);
+      }
+      const text = JSON.stringify(res.body.payoutItems);
+      for (const needle of ['beneficiaryName', 'beneficiary_name', 'Ayesha', 'Rahim']) assert.ok(!text.includes(needle), needle);
       assert.deepEqual(res.body.refunds, []);
     }
   });
@@ -78,6 +84,10 @@ describe('GET /api/analytics', () => {
     ({ ctx } = setup({ AG_STUDIO_LICENSE: 'test-licence' }));
     res = await getAnalytics(ctx, await loginAs(ctx.app, ADMIN));
     assert.equal(res.body.studio.licenseKey, 'test-licence');
+    // AUDITOR can read the data but cannot open /admin/analytics, so no licence key.
+    res = await getAnalytics(ctx, await loginAs(ctx.app, AUDITOR));
+    assert.equal(res.status, 200);
+    assert.equal(res.body.studio.licenseKey, null);
 
     ({ ctx } = setup({ AG_STUDIO_AI: 'on' }));
     res = await getAnalytics(ctx, await loginAs(ctx.app, ADMIN));

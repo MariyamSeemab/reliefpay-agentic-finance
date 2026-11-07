@@ -141,7 +141,7 @@ Backend (`backend/.env`, see `backend/.env.example`):
 | `GROQ_API_KEY` | For the AI agent | Groq API key. |
 | `GROQ_BASE_URL` | No | Default `https://api.groq.com/openai/v1`. |
 | `GROQ_MODEL` | No | Default `openai/gpt-oss-120b`. |
-| `AG_STUDIO_LICENSE` | No | AG Studio licence key for `/admin/analytics`. Sent only to signed-in admins/auditors (AG Studio validates it in the browser). Empty shows a watermark. |
+| `AG_STUDIO_LICENSE` | No | AG Studio licence key for `/admin/analytics`. Sent only to signed-in admins (AG Studio validates it in the browser). Empty shows a watermark. |
 | `AG_STUDIO_AI` | No (off) | Set to `on` to enable the AG Studio AI assistant. It uses `GROQ_API_KEY` through `POST /api/ai/studio/responses`. |
 
 Frontend (`.env` at the repo root, see `.env.example`): `VITE_API_URL` stays empty when the API serves the SPA or when you use the Vite dev proxy. Set it only if the frontend is hosted separately from the API.

@@ -8,6 +8,7 @@ import { actorFromUser, writeAudit } from '../audit.js';
 import { tx } from '../db/index.js';
 import { HttpError } from '../errors.js';
 import { getCampaign, toDollars } from './campaigns.js';
+import { PayPalError } from './paypalClient.js';
 import { MAX_DONATION, MIN_DONATION, centsFromValue, isValidAmount, mapDonation, markDonationCompleted } from './donations.js';
 
 export const MAX_SPLIT_UNITS = 10;
@@ -169,6 +170,18 @@ export async function captureSplitOrder(db, paypal, { user, orderId }) {
   try {
     result = await paypal.captureOrder(orderId, 'cap-' + split.id);
   } catch (err) {
+    // 422: PayPal captured no unit, so the PENDING rows failed. On network or 5xx
+    // errors the outcome is unknown and the rows stay PENDING for the webhook.
+    if (err instanceof PayPalError && err.status === 422) {
+      const failedAt = new Date().toISOString();
+      tx(db, () => {
+        db.prepare("UPDATE donations SET status = 'FAILED', updated_at = ? WHERE split_order_id = ? AND status = 'PENDING'").run(
+          failedAt,
+          split.id,
+        );
+        refreshSplitStatus(db, split.id);
+      });
+    }
     writeAudit(db, {
       actor,
       action: 'DONATION_SPLIT_CAPTURE_FAILED',

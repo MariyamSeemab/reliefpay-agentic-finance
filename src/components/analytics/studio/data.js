@@ -141,7 +141,7 @@ export function buildStudioData(data) {
         fields: fields([
           ['id', 'Payout Item ID', 'textFormat', true],
           ['batchId', 'Payout Batch ID', 'textFormat', true],
-          ['beneficiaryName', 'Beneficiary', 'textFormat'],
+          ['applicationId', 'Payout Application ID', 'textFormat', true],
           ['amount', 'Payout Amount', 'currencyFormat'],
           ['status', 'Payout Status', 'textFormat'],
         ]),

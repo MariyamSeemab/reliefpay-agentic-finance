@@ -111,21 +111,22 @@ function payoutBatchesTable(db) {
 function payoutItemsTable(db) {
   return db
     .prepare(
-      `SELECT pi.id, pi.batch_id, pi.amount_cents, pi.status, a.beneficiary_name
-         FROM payout_items pi JOIN applications a ON a.id = pi.application_id
+      `SELECT pi.id, pi.batch_id, pi.application_id, pi.amount_cents, pi.status
+         FROM payout_items pi
         ORDER BY pi.batch_id, pi.rowid`,
     )
     .all()
     .map((row) => ({
       id: row.id,
       batchId: row.batch_id,
-      beneficiaryName: row.beneficiary_name,
+      applicationId: row.application_id,
       amount: toDollars(row.amount_cents),
       status: row.status,
     }));
 }
 
-export function getAnalytics(db, config) {
+// The AG Studio licence key goes only to ADMIN, the one role that can open /admin/analytics.
+export function getAnalytics(db, config, { role } = {}) {
   return {
     asOf: new Date().toISOString(),
     currency: config.paypal.currency,
@@ -136,7 +137,7 @@ export function getAnalytics(db, config) {
     payoutBatches: payoutBatchesTable(db),
     payoutItems: payoutItemsTable(db),
     studio: {
-      licenseKey: config.agStudio.licenseKey ?? null,
+      licenseKey: role === 'ADMIN' ? (config.agStudio.licenseKey ?? null) : null,
       aiEnabled: Boolean(config.groq.apiKey) && config.agStudio.aiEnabled,
       aiModels: [config.groq.model],
     },

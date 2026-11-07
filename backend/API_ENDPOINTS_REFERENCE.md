@@ -614,7 +614,7 @@ Suggest split:
 ```
 Response `200`: `{ "allocations": [{ campaignId, title, percent }], "rationale", "model" }`. Errors: 400 `INVALID_AMOUNT`, 409 `NOT_ENOUGH_CAMPAIGNS`, 503 `AI_NOT_CONFIGURED`, 503 `AI_RATE_LIMITED`, 502 `AI_INVALID_SUGGESTION`, 502 `AI_ERROR`.
 
-Analytics response `200`: `{ asOf, currency, campaigns: [], donations: [], donors: [], refunds: [], payoutBatches: [], payoutItems: [], studio: { licenseKey, aiEnabled, aiModels } }`.
+Analytics response `200`: `{ asOf, currency, campaigns: [], donations: [], donors: [], refunds: [], payoutBatches: [], payoutItems: [], studio: { licenseKey, aiEnabled, aiModels } }`. `payoutItems` carry `{ id, batchId, applicationId, amount, status }` (no beneficiary names); `licenseKey` is `null` for AUDITOR.
 
 Studio proxy: body is an OpenAI Responses request (`input` array required, `model` must be `GROQ_MODEL`); the API forwards only allow-listed fields with `stream: true` and `max_output_tokens: 8192`, and streams the SSE back. 400/503 errors use `{ "error": { "message" } }`.
 

@@ -6,7 +6,7 @@ export function analyticsRouter({ db, config }) {
   const router = Router();
 
   router.get('/analytics', requireAuth(db, config), requireRole('ADMIN', 'AUDITOR'), (req, res) => {
-    res.json(getAnalytics(db, config));
+    res.json(getAnalytics(db, config, { role: req.user.role }));
   });
 
   return router;

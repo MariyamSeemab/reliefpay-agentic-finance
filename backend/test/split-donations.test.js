@@ -211,6 +211,13 @@ describe('split donations: capture', () => {
     assert.equal(raised('cmp-01'), r1);
     assert.equal(raised('cmp-02'), r2);
     assert.ok(auditActions().includes('DONATION_SPLIT_CAPTURE_FAILED'));
+    for (const id of created.body.donationIds) {
+      const row = ctx.db.prepare('SELECT status, counted FROM donations WHERE id = ?').get(id);
+      assert.equal(row.status, 'FAILED');
+      assert.equal(row.counted, 0);
+    }
+    const split = ctx.db.prepare('SELECT status FROM split_orders WHERE id = ?').get(created.body.splitId);
+    assert.equal(split.status, 'FAILED');
   });
 
   test('split order id on the single-campaign capture endpoint -> 404', async () => {
