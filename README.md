@@ -29,7 +29,7 @@ Wired to the API: login/signup, campaigns, single and split donations, the admin
 - [Postman workspace](https://www.postman.com/orbital-module-cosmonaut-84618325-s-team/workspace/reliefpay-paypal-ai-hackathon): the API collection, ready to fork.
 - [docs/archive/](docs/archive/): the original October 2026 planning documents, kept for history and out of date.
 
-## Screenshots
+## App functionality
 
 Captured with Playwright against a local run with real PayPal sandbox, Groq and Amazon Bedrock calls. All files are in [docs/screenshots/](docs/screenshots/).
 
@@ -228,18 +228,6 @@ All money-moving calls go to the PayPal sandbox. Order capture (needs buyer appr
 - **Demo data resets on Render.** The free plan has no persistent disk, so the SQLite database is re-seeded on every redeploy or restart.
 - **Some pages still use sample data:** the beneficiary and volunteer dashboards, AI verification, beneficiary registration, the emergency application form and the map.
 - **A batch can get stuck in `RELEASING`.** If the API process stops after sending a batch to PayPal and before PayPal answers, the batch stays `RELEASING` and cannot be released or synced. Check the batch in the PayPal sandbox dashboard, then run `npm run seed:reset --prefix backend` to reset the demo data. On Render the database is re-seeded on every restart.
-
-## Demo script (under 3 minutes)
-
-| Time | Scene |
-|------|-------|
-| 0:00 | The problem: relief money is slow to reach people and hard to audit. |
-| 0:15 | Log in as the donor, ask the AI to suggest a split of $50, adjust it, and pay one PayPal sandbox order; both campaign progress bars move. |
-| 0:45 | Log in as the admin, ask the AI Command Centre agent to draft a payout batch, then release it in Payment Agent with the authorization code. |
-| 1:30 | Open Analytics: donation feed, donor leaderboard, campaign progress and payout status. |
-| 1:55 | Issue a partial refund from the refund panel; the campaign's raised total drops. |
-| 2:25 | Log in as the auditor and show the audit trail: split donation, AI suggestion, draft, release, refund. |
-| 2:50 | Close: PayPal moves the money, AI does the paperwork, a human approves. |
 
 ## License
 
