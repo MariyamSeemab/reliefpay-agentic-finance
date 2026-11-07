@@ -1,14 +1,7 @@
 import { Router } from 'express';
 import { actorFromUser } from '../audit.js';
 import { requireAuth, requireRole } from '../auth.js';
-import {
-  draftPayoutBatch,
-  listPayoutBatches,
-  listPayoutMethods,
-  releasePayoutBatch,
-  setPayoutItemMethod,
-  syncPayoutBatch,
-} from '../services/payouts.js';
+import { draftPayoutBatch, listPayoutBatches, releasePayoutBatch, syncPayoutBatch } from '../services/payouts.js';
 
 export function payoutsRouter({ db, config, paypal }) {
   const router = Router();
@@ -16,17 +9,7 @@ export function payoutsRouter({ db, config, paypal }) {
   const admin = requireRole('ADMIN');
 
   router.get('/payouts', auth, requireRole('ADMIN', 'AUDITOR'), (req, res) => {
-    res.json({ batches: listPayoutBatches(db), payoutMethods: listPayoutMethods() });
-  });
-
-  router.patch('/payouts/:id/items/:itemId', auth, admin, (req, res) => {
-    const batch = setPayoutItemMethod(db, {
-      user: req.user,
-      batchId: req.params.id,
-      itemId: req.params.itemId,
-      payoutMethod: req.body?.payoutMethod,
-    });
-    res.json({ batch });
+    res.json({ batches: listPayoutBatches(db) });
   });
 
   router.post('/payouts', auth, admin, (req, res) => {
@@ -47,6 +30,8 @@ export function payoutsRouter({ db, config, paypal }) {
       user: req.user,
       batchId: req.params.id,
       authCode: req.body?.authCode,
+      // Payout item ids the admin ticked; omitted = pay everyone in the batch.
+      itemIds: req.body?.itemIds,
     });
     res.json({ batch });
   });

@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import { beforeEach, describe, test } from 'node:test';
 import request from 'supertest';
 import { loginAs, makeTestContext } from './helpers.js';
@@ -204,94 +204,73 @@ describe('payouts', () => {
     );
   });
 
-  test('payout methods: list exposes PayPal email (supported) and Venmo (unsupported); items default to PAYPAL_EMAIL', async () => {
-    const res = await request(ctx.app).get('/api/payouts').set(bearer(admin));
+  const releaseSome = (id, itemIds, token = admin) =>
+    request(ctx.app).post(`/api/payouts/${id}/release`).set(bearer(token)).send({ authCode: CODE, itemIds });
+  const itemIdsOf = (batchId) => ctx.db.prepare('SELECT id FROM payout_items WHERE batch_id = ? ORDER BY rowid').all(batchId).map((r) => r.id);
+
+  test('selecting one beneficiary pays only that person and frees the other application', async () => {
+    const res = await releaseSome('PB-SEED-001', ['PI-SEED-001']);
     assert.equal(res.status, 200);
-    const methods = Object.fromEntries(res.body.payoutMethods.map((m) => [m.id, m]));
-    assert.equal(methods.PAYPAL_EMAIL.supported, true);
-    assert.equal(methods.VENMO.supported, false);
-    assert.ok(methods.VENMO.reason);
-    const seeded = res.body.batches.find((b) => b.id === 'PB-SEED-001');
-    assert.deepEqual(seeded.items.map((i) => i.payoutMethod), ['PAYPAL_EMAIL', 'PAYPAL_EMAIL']);
+    assert.equal(payoutPosts().length, 1);
+    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.sender_item_id), ['PI-SEED-001']);
+    assert.equal(res.body.batch.beneficiaryCount, 1);
+    assert.equal(res.body.batch.totalAmount, 200);
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001']);
+    const audit = ctx.db.prepare("SELECT details_json FROM audit_logs WHERE action = 'PAYOUT_BENEFICIARIES_DESELECTED'").get();
+    assert.deepEqual(JSON.parse(audit.details_json).removedApplicationIds, ['RPA-2026-0021']);
+
+    // The unticked application can go into a new batch.
+    const redraft = await request(ctx.app)
+      .post('/api/payouts')
+      .set(bearer(admin))
+      .send({ campaignId: 'cmp-01', applicationIds: ['RPA-2026-0021'] });
+    assert.equal(redraft.status, 201);
   });
 
-  const setMethod = (payoutMethod, { token = admin, batchId = 'PB-SEED-001', itemId = 'PI-SEED-001' } = {}) =>
-    request(ctx.app).patch(`/api/payouts/${batchId}/items/${itemId}`).set(bearer(token)).send({ payoutMethod });
-  const itemMethod = (id) => ctx.db.prepare('SELECT payout_method FROM payout_items WHERE id = ?').get(id).payout_method;
-  const methodAudits = () => ctx.db.prepare("SELECT * FROM audit_logs WHERE action = 'PAYOUT_METHOD_CHANGED'").all();
-
-  test('ADMIN setting a supported method on a DRAFT item stores it and audits only real changes', async () => {
-    ctx.db.prepare("UPDATE payout_items SET payout_method = 'LEGACY' WHERE id = 'PI-SEED-001'").run();
-    const res = await setMethod('PAYPAL_EMAIL');
-    assert.equal(res.status, 200);
-    assert.equal(res.body.batch.items.find((i) => i.id === 'PI-SEED-001').payoutMethod, 'PAYPAL_EMAIL');
-    assert.equal(itemMethod('PI-SEED-001'), 'PAYPAL_EMAIL');
-    const audits = methodAudits();
-    assert.equal(audits.length, 1);
-    assert.deepEqual(JSON.parse(audits[0].details_json), {
-      itemId: 'PI-SEED-001',
-      applicationId: 'RPA-2026-0015',
-      from: 'LEGACY',
-      to: 'PAYPAL_EMAIL',
-    });
-
-    // Same value again: no new audit entry.
-    assert.equal((await setMethod('PAYPAL_EMAIL')).status, 200);
-    assert.equal(methodAudits().length, 1);
-  });
-
-  test('Venmo and unknown methods are rejected with 400 and nothing changes', async () => {
-    const venmo = await setMethod('VENMO');
-    assert.equal(venmo.status, 400);
-    assert.equal(venmo.body.error, 'UNSUPPORTED_PAYOUT_METHOD');
-    const unknown = await setMethod('BANK_WIRE');
-    assert.equal(unknown.status, 400);
-    assert.equal(unknown.body.error, 'INVALID_PAYOUT_METHOD');
-    assert.equal(itemMethod('PI-SEED-001'), 'PAYPAL_EMAIL');
-    assert.equal(methodAudits().length, 0);
-  });
-
-  test('non-ADMIN roles cannot change a payout method -> 403', async () => {
-    const reviewer = await loginAs(ctx.app, REVIEWER);
-    const auditor = await loginAs(ctx.app, 'elena@auditcore.org');
-    assert.equal((await setMethod('PAYPAL_EMAIL', { token: reviewer })).status, 403);
-    assert.equal((await setMethod('PAYPAL_EMAIL', { token: auditor })).status, 403);
-    assert.equal(methodAudits().length, 0);
-  });
-
-  test('payout method cannot change once the batch left DRAFT; unknown item -> 404', async () => {
-    assert.equal((await setMethod('PAYPAL_EMAIL', { itemId: 'PI-NOPE' })).status, 404);
-    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
-    const res = await setMethod('PAYPAL_EMAIL');
-    assert.equal(res.status, 409);
-    assert.equal(res.body.error, 'BATCH_NOT_EDITABLE');
-  });
-
-  test('release sends recipient_type from the stored method and refuses unsupported methods', async () => {
-    ctx.db.prepare("UPDATE payout_items SET payout_method = 'VENMO' WHERE id = 'PI-SEED-002'").run();
-    const blocked = await release('PB-SEED-001', CODE);
-    assert.equal(blocked.status, 409);
-    assert.equal(blocked.body.error, 'UNSUPPORTED_PAYOUT_METHOD');
-    assert.deepEqual(blocked.body.offendingIds, ['PI-SEED-002']);
+  test('empty, duplicate or foreign selections are rejected and nothing is sent', async () => {
+    const empty = await releaseSome('PB-SEED-001', []);
+    assert.equal(empty.status, 400);
+    assert.equal(empty.body.error, 'NO_BENEFICIARIES_SELECTED');
+    const dup = await releaseSome('PB-SEED-001', ['PI-SEED-001', 'PI-SEED-001']);
+    assert.equal(dup.status, 400);
+    assert.equal(dup.body.error, 'DUPLICATE_ITEMS');
+    const foreign = await releaseSome('PB-SEED-001', ['PI-SEED-001', 'PI-NOT-HERE']);
+    assert.equal(foreign.status, 400);
+    assert.equal(foreign.body.error, 'ITEMS_NOT_IN_BATCH');
     assert.equal(payoutPosts().length, 0);
     assert.equal(batchRow('PB-SEED-001').status, 'DRAFT');
-
-    assert.equal((await setMethod('PAYPAL_EMAIL', { itemId: 'PI-SEED-002' })).status, 200);
-    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
-    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.recipient_type), ['EMAIL', 'EMAIL']);
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001', 'PI-SEED-002']);
   });
 
-  test('PAYOUT_RECEIVER_EMAIL still overrides PayPal email items after a method change', async () => {
-    await setup({ PAYOUT_RECEIVER_EMAIL: 'sandbox-personal@example.com' });
-    assert.equal((await setMethod('PAYPAL_EMAIL')).status, 200);
+  test('a wrong code with a selection removes nobody', async () => {
+    const res = await request(ctx.app)
+      .post('/api/payouts/PB-SEED-001/release')
+      .set(bearer(admin))
+      .send({ authCode: 'bad', itemIds: ['PI-SEED-001'] });
+    assert.equal(res.status, 403);
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001', 'PI-SEED-002']);
+  });
+
+  test('a retry after RELEASE_FAILED must pay the same people', async () => {
+    fake.state.payoutError = 500;
+    assert.equal((await releaseSome('PB-SEED-001', ['PI-SEED-001'])).status, 502);
+    assert.equal(batchRow('PB-SEED-001').status, 'RELEASE_FAILED');
+    assert.deepEqual(itemIdsOf('PB-SEED-001'), ['PI-SEED-001']);
+    delete fake.state.payoutError;
+
+    const changed = await releaseSome('PB-SEED-001', ['PI-SEED-001', 'PI-SEED-002']);
+    assert.equal(changed.status, 400);
+    assert.equal(changed.body.error, 'ITEMS_NOT_IN_BATCH');
+
+    const retry = await releaseSome('PB-SEED-001', ['PI-SEED-001']);
+    assert.equal(retry.status, 200);
+    assert.equal(payoutPosts()[0].body.sender_batch_header.sender_batch_id, payoutPosts()[1].body.sender_batch_header.sender_batch_id);
+  });
+
+  test('no itemIds field pays everyone in the batch (older clients keep working)', async () => {
     assert.equal((await release('PB-SEED-001', CODE)).status, 200);
-    assert.deepEqual(
-      payoutPosts()[0].body.items.map((i) => [i.recipient_type, i.receiver]),
-      [
-        ['EMAIL', 'sandbox-personal@example.com'],
-        ['EMAIL', 'sandbox-personal@example.com'],
-      ],
-    );
+    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.sender_item_id), ['PI-SEED-001', 'PI-SEED-002']);
+    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.recipient_type), ['EMAIL', 'EMAIL']);
   });
 
   test('5 wrong codes -> 423 on the 6th try, even with the right code', async () => {

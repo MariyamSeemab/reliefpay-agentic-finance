@@ -1,5 +1,20 @@
 # ReliefPay end-to-end test report
 
+## Run 4: choose who gets paid (beneficiary checkboxes)
+
+- **Date:** 7 November 2026, about 16:29 to 16:45 UTC
+- **Target:** local run (`npm run build`, then the backend on http://localhost:4000) against the PayPal sandbox. `npm run seed:reset --prefix backend` before and after.
+- **Change:** the payout method selector and the Venmo note were removed. A DRAFT batch now has a checkbox per beneficiary and a select-all box. The server pays only the ticked items (`itemIds` in `POST /api/payouts/:id/release`), removes the unticked ones so their applications can be drafted again, and audits `PAYOUT_BENEFICIARIES_DESELECTED`.
+- **Automated tests:** `npm run build` passes. `npm test --prefix backend`: 141 of 141 pass. New tests cover partial selection, empty, duplicate or foreign selections, a wrong code removing nobody, a retry after `RELEASE_FAILED` having to pay the same people, and no `itemIds` paying everyone.
+
+| # | Check | Result | Screenshot |
+|---|---|---|---|
+| 1 | Untick Rajesh Patel in `PB-SEED-001` | ✅ The row greys out, the page shows "Paying 1 of 2 beneficiaries, $200.00", and the button reads "Authorize Payout (1)" | `23-payout-select-beneficiaries.png` |
+| 2 | Release with only Rahim Shaikh ticked (code sent from the server environment, never shown) | ✅ PayPal sandbox batch `QF3ZEACPMAWHW` with 1 item, $200.00. After "Refresh status from PayPal" the batch and item are **SUCCESS** | `14-payout-released-success.png` |
+| 3 | Audit trail | ✅ `PAYOUT_BENEFICIARIES_DESELECTED` lists removed `RPA-2026-0021` and paid `RPA-2026-0015`. `PAYOUT_RELEASED` lists `paidApplicationIds: [RPA-2026-0015]` | - |
+| 4 | Unticked person can be paid later | ✅ `RPA-2026-0021` drafted into new batch `PB-f3a67eca` ($220.00, 1 beneficiary) | `12-payment-agent-draft.png` |
+| 5 | Authorization dialog shows only the selection | ✅ "$220.00", "1 of 1", names the selected beneficiary, code field empty | `13-authorize-dialog-empty-code.png` |
+
 ## Run 3: six UI changes on `feat/integrations`
 
 - **Date:** 7 November 2026, about 14:20 to 14:45 UTC
@@ -16,7 +31,7 @@
 | 5 | Tax receipt PDF | ✅ Pass. The DON-901 row icon downloads `RP-TR-DON-901.pdf` (valid PDF, one page) and **Download Tax Receipt** downloads `ReliefPay-tax-receipts.pdf`. The receipt has the logo, receipt number, donor, campaign, $500.00 (USD), date, donation ID and the sandbox demo note. Seeded donations have no PayPal order or capture ID, so that line is not shown. | `04-donor-dashboard.png`, `25-tax-receipt-pdf.png` |
 | 6 | Back button on the campaigns page | ✅ Pass. "Back to Dashboard" above the title returns to `/dashboard`. | `02-campaigns.png` |
 
-**Venmo verdict: not supported.** PayPal Payouts v1 sends Venmo payouts with `recipient_wallet: VENMO` to a US mobile number (`recipient_type: PHONE`) or a Venmo handle, USD only and US recipients only. PayPal's `payout_item_request` definition says the sandbox does not support the PHONE recipient type, and ReliefPay stores only a PayPal email per beneficiary, so Venmo could not be sent or tested correctly. It is listed as disabled and the API rejects it.
+The payout method selector from item 2 was removed afterwards and replaced by beneficiary checkboxes. See run 4.
 
 Notes:
 
