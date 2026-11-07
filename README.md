@@ -54,8 +54,8 @@ The screenshots below walk through the product in order. They were captured with
 | ![Contact support](docs/screenshots/21-landing-contact-support.png) | ![Settings panel](docs/screenshots/22-settings-panel.png) |
 | **23. Choose who gets paid (1 of 2 ticked)** | **24. Floating AI Assistant in View mode** |
 | ![Choose beneficiaries](docs/screenshots/23-payout-select-beneficiaries.png) | ![Floating assistant](docs/screenshots/24-analytics-floating-assistant.png) |
-| **25. Tax receipt PDF (DON-901)** | |
-| ![Tax receipt PDF](docs/screenshots/25-tax-receipt-pdf.png) | |
+| **25. Tax receipt PDF (DON-901)** | **26. Landing footer with logo and working links** |
+| ![Tax receipt PDF](docs/screenshots/25-tax-receipt-pdf.png) | ![Landing footer](docs/screenshots/26-landing-footer.png) |
 
 ## Architecture
 

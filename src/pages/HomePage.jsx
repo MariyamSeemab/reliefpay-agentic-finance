@@ -5,9 +5,15 @@ import { StatsSection } from '../components/landing/StatsSection';
 import { HowItWorksSection } from '../components/landing/HowItWorksSection';
 import { TestimonialSection } from '../components/landing/TestimonialSection';
 import { FAQSection } from '../components/landing/FAQSection';
-import { Heart, Mail, Smartphone, Globe, CheckCircle, Zap, Shield } from 'lucide-react';
+import { Heart, Mail, Github, Globe, CheckCircle, Zap, Shield } from 'lucide-react';
 
 const SUPPORT_EMAIL = 'dineshrajdhanapathy@gmail.com';
+const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('ReliefPay support request')}`;
+const REPO_URL = 'https://github.com/MariyamSeemab/reliefpay-agentic-finance';
+const POSTMAN_URL = 'https://www.postman.com/orbital-module-cosmonaut-84618325-s-team/workspace/reliefpay-paypal-ai-hackathon';
+const LIVE_URL = 'https://reliefpay.onrender.com';
+const footerLink = 'text-slate-400 hover:text-emerald-400 transition text-left';
+const scrollTo = (id) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -154,20 +160,20 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             {/* Brand */}
             <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <img src="/imgs/logo.png" alt="ReliefPay Logo" className="h-10 w-auto" />
-              </div>
+              <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Back to top" className="inline-flex">
+                <img src="/imgs/logo.png" alt="ReliefPay" className="h-20 w-auto rounded-xl bg-white p-2" />
+              </button>
               <p className="text-sm text-slate-400">Transparent disaster relief. Every donation tracked. Every beneficiary verified.</p>
               <div className="flex gap-4 pt-2">
-                <button className="text-slate-400 hover:text-emerald-400 transition">
-                  <Smartphone className="w-5 h-5" />
-                </button>
-                <button className="text-slate-400 hover:text-emerald-400 transition">
+                <a href={SUPPORT_MAILTO} aria-label="Email support" title="Email support" className="text-slate-400 hover:text-emerald-400 transition">
                   <Mail className="w-5 h-5" />
-                </button>
-                <button className="text-slate-400 hover:text-emerald-400 transition">
+                </a>
+                <a href={REPO_URL} target="_blank" rel="noopener noreferrer" aria-label="GitHub repository" title="GitHub repository" className="text-slate-400 hover:text-emerald-400 transition">
+                  <Github className="w-5 h-5" />
+                </a>
+                <a href={LIVE_URL} target="_blank" rel="noopener noreferrer" aria-label="Live demo" title="Live demo" className="text-slate-400 hover:text-emerald-400 transition">
                   <Globe className="w-5 h-5" />
-                </button>
+                </a>
               </div>
             </div>
 
@@ -175,43 +181,43 @@ export default function HomePage() {
             <div>
               <h4 className="font-bold text-white mb-4">Product</h4>
               <ul className="space-y-2 text-sm">
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Features</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Campaigns</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Pricing</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Documentation</button></li>
+                <li><button onClick={() => scrollTo('about')} className={footerLink}>Features</button></li>
+                <li><button onClick={() => navigate('/campaigns')} className={footerLink}>Campaigns</button></li>
+                <li><button onClick={() => scrollTo('impact')} className={footerLink}>How it works</button></li>
+                <li><button onClick={() => navigate('/signup')} className={footerLink}>Create an account</button></li>
               </ul>
             </div>
 
-            {/* Company */}
+            {/* Developers */}
             <div>
-              <h4 className="font-bold text-white mb-4">Company</h4>
+              <h4 className="font-bold text-white mb-4">Developers</h4>
               <ul className="space-y-2 text-sm">
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">About Us</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Team</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Blog</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Contact</button></li>
+                <li><a href={`${REPO_URL}#readme`} target="_blank" rel="noopener noreferrer" className={footerLink}>Documentation</a></li>
+                <li><a href={POSTMAN_URL} target="_blank" rel="noopener noreferrer" className={footerLink}>API collection (Postman)</a></li>
+                <li><a href={`${REPO_URL}/blob/main/docs/E2E_TEST_REPORT.md`} target="_blank" rel="noopener noreferrer" className={footerLink}>Test report</a></li>
+                <li><a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={footerLink}>Source code (GitHub)</a></li>
               </ul>
             </div>
 
-            {/* Legal */}
+            {/* Support */}
             <div>
-              <h4 className="font-bold text-white mb-4">Legal</h4>
+              <h4 className="font-bold text-white mb-4">Support</h4>
               <ul className="space-y-2 text-sm">
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Privacy Policy</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Terms of Service</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Security</button></li>
-                <li><button className="text-slate-400 hover:text-emerald-400 transition">Compliance</button></li>
+                <li><button onClick={() => scrollTo('faq')} className={footerLink}>FAQ</button></li>
+                <li><button onClick={() => scrollTo('support')} className={footerLink}>Contact support</button></li>
+                <li><a href={`${REPO_URL}#safety-design`} target="_blank" rel="noopener noreferrer" className={footerLink}>Safety design</a></li>
+                <li><a href={`${REPO_URL}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer" className={footerLink}>License (MIT)</a></li>
               </ul>
             </div>
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-sm text-slate-400">
-            <p>&copy; 2026 ReliefPay. All rights reserved. Helping communities recover, one transaction at a time.</p>
-            <div className="flex gap-6 mt-6 md:mt-0">
-              <button className="hover:text-emerald-400 transition">Security</button>
-              <button className="hover:text-emerald-400 transition">Status</button>
-              <button className="hover:text-emerald-400 transition">Accessibility</button>
+          <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-sm text-slate-400 gap-4">
+            <p>&copy; 2026 ReliefPay. Built for the PayPal AI Hackathon. PayPal sandbox demo: no real money moves.</p>
+            <div className="flex gap-6">
+              <a href="/api/health" target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 transition">API status</a>
+              <button onClick={() => navigate('/login')} className="hover:text-emerald-400 transition">Sign in</button>
+              <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-emerald-400 transition">Back to top</button>
             </div>
           </div>
         </div>
