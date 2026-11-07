@@ -1,7 +1,8 @@
 // The AG Studio AI assistant. The verbatim adapter posts to `${endpoint}/responses`,
-// i.e. our ADMIN-only proxy POST /api/ai/studio/responses, which adds the Groq key
-// on the server. The adapter's `key` is the signed-in user's JWT, so the proxy can
-// authenticate the request; the Groq key never reaches the browser.
+// i.e. our ADMIN-only proxy POST /api/ai/studio/responses, which calls Groq or
+// Amazon Bedrock (AG_STUDIO_AI_PROVIDER) with server-side credentials. The adapter's
+// `key` is the signed-in user's JWT, so the proxy can authenticate the request; no
+// AI provider credentials reach the browser.
 
 import { createAiHarness } from 'ag-studio';
 import { API_BASE } from '../../../lib/api';

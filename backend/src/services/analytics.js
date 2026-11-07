@@ -138,8 +138,9 @@ export function getAnalytics(db, config, { role } = {}) {
     payoutItems: payoutItemsTable(db),
     studio: {
       licenseKey: role === 'ADMIN' ? (config.agStudio.licenseKey ?? null) : null,
-      aiEnabled: Boolean(config.groq.apiKey) && config.agStudio.aiEnabled,
-      aiModels: [config.groq.model],
+      ...(config.agStudio.aiProvider === 'bedrock'
+        ? { aiEnabled: config.agStudio.aiEnabled, aiModels: [config.agStudio.bedrock.model] }
+        : { aiEnabled: Boolean(config.groq.apiKey) && config.agStudio.aiEnabled, aiModels: [config.groq.model] }),
     },
   };
 }

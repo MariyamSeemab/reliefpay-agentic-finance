@@ -38,3 +38,13 @@ services:
         sync: false
       - key: AG_STUDIO_AI
         sync: false
+      - key: AG_STUDIO_AI_PROVIDER
+        sync: false
+      - key: AG_STUDIO_BEDROCK_MODEL
+        value: us.amazon.nova-2-lite-v1:0
+      - key: AWS_REGION
+        value: us-east-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false

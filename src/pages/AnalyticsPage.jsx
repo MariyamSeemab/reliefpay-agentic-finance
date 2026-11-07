@@ -88,8 +88,7 @@ export default function AnalyticsPage() {
                 {!data.studio.aiEnabled && (
                   <p className="flex items-start gap-2">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    The AG Studio AI assistant is off. Set AG_STUDIO_AI=on (with GROQ_API_KEY) on a Groq tier with more than
-                    8,000 tokens per minute: each assistant turn sends about 5,000 tokens.
+                    The AI assistant is not enabled on this deployment.
                   </p>
                 )}
               </div>

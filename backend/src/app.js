@@ -14,7 +14,7 @@ import { webhooksRouter } from './routes/webhooks.js';
 import { HttpError } from './errors.js';
 import { PayPalError } from './services/paypalClient.js';
 
-export function createApp({ db, config, paypal = null, groq = null }) {
+export function createApp({ db, config, paypal = null, groq = null, bedrockStudio = null }) {
   const app = express();
   app.disable('x-powered-by');
   // The AG Studio assistant proxy authenticates first, then parses up to 1 MB
@@ -22,7 +22,7 @@ export function createApp({ db, config, paypal = null, groq = null }) {
   const jsonParser = express.json({ limit: '100kb' });
   app.use((req, res, next) => (req.path.startsWith('/api/ai/studio/') ? next() : jsonParser(req, res, next)));
 
-  const deps = { db, config, paypal, groq };
+  const deps = { db, config, paypal, groq, bedrockStudio };
   app.use('/api', metaRouter(deps));
   app.use('/api', authRouter(deps));
   app.use('/api', campaignsRouter(deps));

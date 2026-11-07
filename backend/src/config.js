@@ -55,6 +55,13 @@ export function readConfig(env = process.env) {
       // Groq's on_demand tier (8,000 TPM for openai/gpt-oss-120b) the second turn of a
       // chat gets HTTP 429 before a reply arrives. Enable it on a tier with more TPM.
       aiEnabled: nonEmpty(env.AG_STUDIO_AI)?.toLowerCase() === 'on',
+      // groq (default) or bedrock. Only the AG Studio assistant uses this; the AI
+      // Command Centre and split suggestions always use Groq.
+      aiProvider: nonEmpty(env.AG_STUDIO_AI_PROVIDER)?.toLowerCase() === 'bedrock' ? 'bedrock' : 'groq',
+      bedrock: {
+        model: nonEmpty(env.AG_STUDIO_BEDROCK_MODEL) || 'us.amazon.nova-2-lite-v1:0',
+        region: nonEmpty(env.AWS_REGION) || 'us-east-1',
+      },
     },
   };
 }

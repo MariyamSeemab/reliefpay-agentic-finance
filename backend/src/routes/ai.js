@@ -3,6 +3,7 @@ import express, { Router } from 'express';
 import { actorFromUser, writeAudit } from '../audit.js';
 import { requireAuth, requireRole } from '../auth.js';
 import { runAgent } from '../ai/agent.js';
+import { StudioTranslationError, bedrockErrorResponse, toConverseInput, toResponsesEvents } from '../ai/bedrockStudio.js';
 import { GroqError } from '../ai/groqClient.js';
 import { suggestSplit } from '../ai/splitSuggest.js';
 import { HttpError } from '../errors.js';
@@ -41,8 +42,57 @@ function validateMessages(messages) {
   return clean;
 }
 
-export function aiRouter({ db, config, groq }) {
+export function aiRouter({ db, config, groq, bedrockStudio }) {
   const router = Router();
+
+  // AG_STUDIO_AI_PROVIDER=bedrock: same auth, model allow-list and output cap as
+  // the Groq path, but the Responses body is translated to Bedrock ConverseStream
+  // and the stream back to Responses SSE events (see ai/bedrockStudio.js).
+  async function studioViaBedrock(req, res) {
+    if (!bedrockStudio || !config.agStudio.aiEnabled) {
+      return res.status(503).json({ error: { message: 'The AG Studio assistant is not configured on the server' } });
+    }
+    const body = req.body;
+    if (!body || typeof body !== 'object' || Array.isArray(body) || !Array.isArray(body.input)) {
+      return res.status(400).json({ error: { message: 'Request body must be an object with an input array' } });
+    }
+    const allowedModels = [config.agStudio.bedrock.model];
+    const model = typeof body.model === 'string' && body.model ? body.model : allowedModels[0];
+    if (!allowedModels.includes(model)) {
+      return res.status(400).json({ error: { message: `Model "${model}" is not enabled.` } });
+    }
+
+    let translated;
+    try {
+      translated = toConverseInput(body, { model, maxTokens: STUDIO_MAX_OUTPUT_TOKENS });
+    } catch (err) {
+      if (!(err instanceof StudioTranslationError)) throw err;
+      return res.status(400).json({ error: { message: err.message } });
+    }
+
+    const controller = new AbortController();
+    res.on('close', () => controller.abort());
+
+    let upstream;
+    try {
+      upstream = await bedrockStudio.converseStream(translated.input, { signal: controller.signal });
+    } catch (err) {
+      const [status, message] = bedrockErrorResponse(err);
+      console.error('[bedrock studio]', err?.name, status);
+      return res.status(status).json({ error: { message } });
+    }
+    console.log('[bedrock studio]', upstream?.$metadata?.httpStatusCode ?? 200);
+
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Accel-Buffering', 'no');
+    for await (const event of toResponsesEvents(upstream.stream ?? [], { model, jsonMode: translated.jsonMode })) {
+      if (res.writableEnded || res.destroyed) break;
+      res.write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    }
+    res.end();
+  }
 
   router.post('/ai/chat', requireAuth(db, config), requireRole('ADMIN'), async (req, res) => {
     const messages = validateMessages(req.body?.messages);
@@ -105,6 +155,7 @@ export function aiRouter({ db, config, groq }) {
     requireRole('ADMIN'),
     express.json({ limit: STUDIO_BODY_LIMIT }),
     async (req, res) => {
+      if (config.agStudio.aiProvider === 'bedrock') return studioViaBedrock(req, res);
       if (!groq?.isConfigured || !config.agStudio.aiEnabled) {
         return res.status(503).json({ error: { message: 'The AG Studio assistant is not configured on the server' } });
       }

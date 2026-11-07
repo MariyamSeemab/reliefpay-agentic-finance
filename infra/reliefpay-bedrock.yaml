@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ReliefPay - IAM user for Render that may only call Amazon Bedrock Nova 2 Lite (AG Studio assistant). No access key is created here; create it in the IAM console.
+
+Resources:
+  RenderBedrockUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: reliefpay-render-bedrock
+      Tags:
+        - Key: project
+          Value: reliefpay
+        - Key: purpose
+          Value: render-ag-studio-assistant
+      Policies:
+        - PolicyName: reliefpay-bedrock-nova-2-lite-only
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InvokeNova2LiteViaUsProfile
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub arn:aws:bedrock:us-east-1:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0
+                  - arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0
+                  - arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0
+                  - arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0
+
+Outputs:
+  UserName:
+    Value: !Ref RenderBedrockUser
+  UserArn:
+    Value: !GetAtt RenderBedrockUser.Arn
