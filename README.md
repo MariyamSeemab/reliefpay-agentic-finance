@@ -11,7 +11,11 @@ ReliefPay is a disaster-relief platform where donors fund campaigns through PayP
 - **AI agent on Groq.** In the AI Command Centre an admin chats with an agent that calls local tools to read campaigns, applications, donations and payout batches, and can draft a payout batch. It has no tool that releases money.
 - **Split donations.** A signed-in donor can split one donation across 2 to 10 campaigns. The API creates one PayPal order with one purchase unit per campaign, and each captured unit is added to its own campaign. The AI can suggest percentages, but it only proposes; the donor edits and approves.
 - **Refunds lower campaign totals.** An admin can issue a full or partial refund through PayPal. Admin refunds and `PAYMENT.CAPTURE.REFUNDED`/`REVERSED` webhooks lower the campaign's raised total exactly once.
-- **AG Studio analytics** at `/admin/analytics`: donation feed, donor leaderboard, campaign progress and payout status, plus a refund panel. An optional AG Studio AI assistant runs through a server proxy on Amazon Bedrock (Nova 2 Lite) or Groq (off by default, see Known limitations).
+- **Payout method per beneficiary.** In a DRAFT batch the admin picks each beneficiary's payout method on the Payment Agent page. The choice is stored per payout item, can be changed only by an ADMIN while the batch is DRAFT, is audited as `PAYOUT_METHOD_CHANGED`, and sets the item's `recipient_type` in the Payouts request. PayPal email is the only supported method. Venmo is listed but disabled: PayPal sends Venmo payouts to a US mobile number or Venmo handle in USD only, and the PayPal sandbox does not support that recipient type.
+- **AG Studio analytics** at `/admin/analytics`: donation feed, donor leaderboard, campaign progress and payout status, plus a refund panel. An optional AG Studio AI assistant runs through a server proxy on Amazon Bedrock (Nova 2 Lite) or Groq (off by default, see Known limitations). A floating **AI Assistant** button in the bottom-right corner opens the assistant in View mode; Edit mode keeps AG Studio's own layout. When the assistant is off, the button is disabled with a tooltip.
+- **Tax receipt PDFs.** On the donor dashboard each donation has its own receipt download, and **Download Tax Receipt** builds one PDF with a page per donation: ReliefPay logo and header, receipt number, donor, campaign, USD amount, date, PayPal order or capture ID when present, and a PayPal sandbox demo note. jsPDF is lazy-loaded in its own chunk.
+- **Settings panel.** The gear in the dashboard header opens Settings: profile (name, email, role, organization), notification toggles saved in this browser's localStorage, and Sign Out.
+- **Landing page branding and support.** The navbar shows the ReliefPay logo with the "ReliefPay" name, and a "Contact our support team" block above the footer links to dineshrajdhanapathy@gmail.com. The campaigns page (split donation form) has a Back button.
 - **Postman collection** in `docs/postman/` for trying the API (see [Postman collection](#postman-collection)).
 - **Role-based access for 6 roles:** Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor.
 
@@ -23,12 +27,12 @@ Playwright runs against the live Render deployment and against a local run (PayP
 
 ## Screenshots
 
-The screenshots below walk through the product in order. They were captured with Playwright (1366x800) against a local run (`npm run build`, then `npm start --prefix backend` with `AG_STUDIO_AI=on` and `AG_STUDIO_AI_PROVIDER=bedrock`) using real PayPal sandbox, Groq and Amazon Bedrock calls. All files are in [docs/screenshots/](docs/screenshots/).
+The screenshots below walk through the product in order. They were captured with Playwright (1366x800; screenshots 1, 2, 4, 8, 12, 13, 15, 16 and 21-25 were retaken at 1440x900 in run 3) against a local run (`npm run build`, then `npm start --prefix backend` with `AG_STUDIO_AI=on` and `AG_STUDIO_AI_PROVIDER=bedrock`) using real PayPal sandbox, Groq and Amazon Bedrock calls. All files are in [docs/screenshots/](docs/screenshots/).
 
-| 1. Landing page | 2. Campaigns and split donation form |
+| 1. Landing page with logo and ReliefPay name | 2. Campaigns with Back button and split donation form |
 |---|---|
 | ![Landing page](docs/screenshots/01-landing.png) | ![Campaigns](docs/screenshots/02-campaigns.png) |
-| **3. Login with demo accounts** | **4. Donor dashboard** |
+| **3. Login with demo accounts** | **4. Donor dashboard with receipt downloads** |
 | ![Login](docs/screenshots/03-login-demo-accounts.png) | ![Donor dashboard](docs/screenshots/04-donor-dashboard.png) |
 | **5. Split donation: AI suggestion (Groq)** | **6. Split donation: PayPal buttons after Confirm split** |
 | ![AI split suggestion](docs/screenshots/05-split-ai-suggestion.png) | ![PayPal buttons](docs/screenshots/06-split-paypal-buttons.png) |
@@ -36,16 +40,22 @@ The screenshots below walk through the product in order. They were captured with
 | ![PayPal popup](docs/screenshots/07-paypal-sandbox-popup.png) | ![Admin dashboard](docs/screenshots/08-admin-dashboard.png) |
 | **9. Application management** | **10. AI Command Centre: answer as a table** |
 | ![Applications](docs/screenshots/09-application-management.png) | ![AI Command Centre table](docs/screenshots/10-ai-command-centre-table.png) |
-| **11. AI Command Centre: drafting a payout batch** | **12. Payment Agent: AI-drafted batch** |
+| **11. AI Command Centre: drafting a payout batch** | **12. Payment Agent: draft batch with Payout Method column** |
 | ![AI drafts a batch](docs/screenshots/11-ai-command-centre-draft-batch.png) | ![Payment Agent draft](docs/screenshots/12-payment-agent-draft.png) |
 | **13. Authorization dialog (code field empty)** | **14. Batch released, SUCCESS from PayPal** |
 | ![Authorize dialog](docs/screenshots/13-authorize-dialog-empty-code.png) | ![Payout released](docs/screenshots/14-payout-released-success.png) |
-| **15. AG Studio analytics (licensed, no watermark)** | **16. AG Studio AI Assistant on Amazon Bedrock** |
+| **15. AG Studio analytics (licensed, no watermark)** | **16. AG Studio AI Assistant on Amazon Bedrock (View mode)** |
 | ![Analytics](docs/screenshots/15-analytics-ag-studio.png) | ![AG Studio assistant](docs/screenshots/16-ag-studio-assistant-bedrock.png) |
 | **17. Donations and refunds panel** | **18. Auditor audit log** |
 | ![Refunds panel](docs/screenshots/17-refunds-panel.png) | ![Audit log](docs/screenshots/18-auditor-audit-log.png) |
 | **19. Beneficiary dashboard** | **20. Volunteer dashboard** |
 | ![Beneficiary dashboard](docs/screenshots/19-beneficiary-dashboard.png) | ![Volunteer dashboard](docs/screenshots/20-volunteer-dashboard.png) |
+| **21. Landing page: Contact our support team** | **22. Settings panel from the header gear** |
+| ![Contact support](docs/screenshots/21-landing-contact-support.png) | ![Settings panel](docs/screenshots/22-settings-panel.png) |
+| **23. Payout method per beneficiary (Venmo disabled)** | **24. Floating AI Assistant in View mode** |
+| ![Payout method selector](docs/screenshots/23-payout-method-selector.png) | ![Floating assistant](docs/screenshots/24-analytics-floating-assistant.png) |
+| **25. Tax receipt PDF (DON-901)** | |
+| ![Tax receipt PDF](docs/screenshots/25-tax-receipt-pdf.png) | |
 
 ## Architecture
 

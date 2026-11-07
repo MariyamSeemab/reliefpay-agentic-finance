@@ -1,5 +1,30 @@
 # ReliefPay end-to-end test report
 
+## Run 3: six UI changes on `feat/integrations`
+
+- **Date:** 7 November 2026, about 14:20 to 14:45 UTC
+- **Target:** local run of commit `2549973` (payout method commit `4683817` before it): `npm run build`, then the backend on http://localhost:4000 with `AG_STUDIO_AI=on` and `AG_STUDIO_AI_PROVIDER=bedrock`. `npm run seed:reset --prefix backend` after the run.
+- **Method:** Playwright (Chromium, 1440x900), one step at a time. The PDF was captured from the page's own download and rendered with pdf.js for the screenshot.
+- **Automated tests:** `npm run build` passes (jsPDF in its own lazy chunk). `npm test --prefix backend`: 143 of 143 pass (136 before plus 7 payout method tests).
+
+| # | Change | Result | Screenshot |
+|---|---|---|---|
+| 1 | Landing navbar shows the logo and "ReliefPay"; "Contact our support team" block above the footer with `mailto:dineshrajdhanapathy@gmail.com` | ✅ Pass | `01-landing.png`, `21-landing-contact-support.png` |
+| 2 | Payout Method selector per beneficiary in the DRAFT batch | ✅ Pass. Both rows show "PayPal email"; "Venmo (not supported)" is a disabled option and the reason is shown under the table. Through the API, `PATCH /api/payouts/PB-SEED-001/items/PI-SEED-001` with `VENMO` returns 400 `UNSUPPORTED_PAYOUT_METHOD`, and with `PAYPAL_EMAIL` returns 200. `GET /api/payouts` returns `payoutMethods`. The authorization dialog still opens with an empty code field; the batch was not released in this run. | `12-payment-agent-draft.png`, `23-payout-method-selector.png`, `13-authorize-dialog-empty-code.png` |
+| 3 | Header gear opens Settings | ✅ Pass. Shows name, email, role and organization. Turning on the "Weekly impact summary" toggle and reloading keeps the new value (localStorage key `reliefpay.notifications.<user id>`). Sign Out in the panel returns to `/login`. | `22-settings-panel.png` |
+| 4 | Floating AI Assistant button on the analytics page in View mode | ✅ Pass. On page load the bottom-right button opens the AG Studio assistant; "Close assistant" hides it and it reopens. Edit mode still works and shows the assistant in AG Studio's default layout (the floating button is hidden there). Bedrock answered "Which active campaigns are furthest from their target?" with Kerala $2,500 and Mumbra $1,320 short. | `15-analytics-ag-studio.png`, `24-analytics-floating-assistant.png`, `16-ag-studio-assistant-bedrock.png` |
+| 5 | Tax receipt PDF | ✅ Pass. The DON-901 row icon downloads `RP-TR-DON-901.pdf` (valid PDF, one page) and **Download Tax Receipt** downloads `ReliefPay-tax-receipts.pdf`. The receipt has the logo, receipt number, donor, campaign, $500.00 (USD), date, donation ID and the sandbox demo note. Seeded donations have no PayPal order or capture ID, so that line is not shown. | `04-donor-dashboard.png`, `25-tax-receipt-pdf.png` |
+| 6 | Back button on the campaigns page | ✅ Pass. "Back to Dashboard" above the title returns to `/dashboard`. | `02-campaigns.png` |
+
+**Venmo verdict: not supported.** PayPal Payouts v1 sends Venmo payouts with `recipient_wallet: VENMO` to a US mobile number (`recipient_type: PHONE`) or a Venmo handle, USD only and US recipients only. PayPal's `payout_item_request` definition says the sandbox does not support the PHONE recipient type, and ReliefPay stores only a PayPal email per beneficiary, so Venmo could not be sent or tested correctly. It is listed as disabled and the API rejects it.
+
+Notes:
+
+- Each receipt PDF is about 3 MB because the logo image is embedded at full size.
+- Once, after several View/Edit switches, the floating button opened the assistant with the side panels collapsed. A fresh load and a single Edit then View switch did not reproduce it.
+- The AG Studio console logged one internal projection error while answering; the answer still completed.
+- Screenshots 3, 5-7, 9-11, 14 and 17-20 are from run 2. Screenshot 14 needs a real release with the authorization code, which this run did not do.
+
 ## Run 2: local run after fixing F1-F3
 
 - **Date:** 7 November 2026, 12:44 to 13:10 UTC
