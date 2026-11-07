@@ -7,6 +7,8 @@ import { TestimonialSection } from '../components/landing/TestimonialSection';
 import { FAQSection } from '../components/landing/FAQSection';
 import { Heart, Mail, Smartphone, Globe, CheckCircle, Zap, Shield } from 'lucide-react';
 
+const SUPPORT_EMAIL = 'dineshrajdhanapathy@gmail.com';
+
 export default function HomePage() {
   const navigate = useNavigate();
 
@@ -17,14 +19,13 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0, 0)}>
-              <img src="/imgs/logo.png" alt="ReliefPay Logo" className="h-12 w-auto" />
-              <span className="text-xl font-bold text-slate-900">ReliefPay</span>
+              <img src="/imgs/logo.png" alt="ReliefPay" className="h-14 w-auto" />
             </div>
             <div className="hidden md:flex items-center gap-8">
               <button onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition">About</button>
               <button onClick={() => document.getElementById('campaigns')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition">Campaigns</button>
               <button onClick={() => document.getElementById('impact')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition">Impact</button>
-              <button onClick={() => document.getElementById('faq')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition">Contact</button>
+              <button onClick={() => document.getElementById('support')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition">Contact</button>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -136,13 +137,13 @@ export default function HomePage() {
             <Mail className="w-6 h-6 text-emerald-600" />
           </div>
           <h3 className="text-2xl font-bold text-slate-900">Contact our support team</h3>
-          <p className="text-sm text-slate-600">Questions about a donation, an application or a payout? Email us and we will help.</p>
+          <p className="text-sm text-slate-600">Questions about a donation, an application or a payout? Click below to email us and we will help.</p>
           <a
-            href="mailto:dineshrajdhanapathy@gmail.com"
+            href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('ReliefPay support request')}`}
             className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition"
           >
             <Mail className="w-4 h-4" />
-            dineshrajdhanapathy@gmail.com
+            Email support
           </a>
         </section>
       </main>

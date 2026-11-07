@@ -15,7 +15,7 @@ ReliefPay is a disaster-relief platform where donors fund campaigns through PayP
 - **AG Studio analytics** at `/admin/analytics`: donation feed, donor leaderboard, campaign progress and payout status, plus a refund panel. An optional AG Studio AI assistant runs through a server proxy on Amazon Bedrock (Nova 2 Lite) or Groq (off by default, see Known limitations). A floating **AI Assistant** button in the bottom-right corner opens the assistant in View mode; Edit mode keeps AG Studio's own layout. When the assistant is off, the button is disabled with a tooltip.
 - **Tax receipt PDFs.** On the donor dashboard each donation has its own receipt download, and **Download Tax Receipt** builds one PDF with a page per donation: ReliefPay logo and header, receipt number, donor, campaign, USD amount, date, PayPal order or capture ID when present, and a PayPal sandbox demo note. jsPDF is lazy-loaded in its own chunk.
 - **Settings panel.** The gear in the dashboard header opens Settings: profile (name, email, role, organization), notification toggles saved in this browser's localStorage, and Sign Out.
-- **Landing page branding and support.** The navbar shows the ReliefPay logo with the "ReliefPay" name, and a "Contact our support team" block above the footer links to dineshrajdhanapathy@gmail.com. The campaigns page (split donation form) has a Back button.
+- **Branding and support.** The ReliefPay logo appears on every page: in the landing navbar and footer, on login, signup and the dashboard header, at the top right of every inner page next to its Back button, and on the 404 and access-denied pages. A single "Contact our support team" section on the landing page has an **Email support** button that opens an email to the support team without showing the address; the navbar **Contact** link scrolls to it. The campaigns page (split donation form) has a Back button.
 - **Postman collection** in `docs/postman/` for trying the API (see [Postman collection](#postman-collection)).
 - **Role-based access for 6 roles:** Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor.
 
@@ -29,7 +29,7 @@ Playwright runs against the live Render deployment and against a local run (PayP
 
 The screenshots below walk through the product in order. They were captured with Playwright (1366x800; screenshots 1, 2, 4, 8, 12, 13, 15, 16 and 21-25 were retaken at 1440x900 in run 3) against a local run (`npm run build`, then `npm start --prefix backend` with `AG_STUDIO_AI=on` and `AG_STUDIO_AI_PROVIDER=bedrock`) using real PayPal sandbox, Groq and Amazon Bedrock calls. All files are in [docs/screenshots/](docs/screenshots/).
 
-| 1. Landing page with logo and ReliefPay name | 2. Campaigns with Back button and split donation form |
+| 1. Landing page with the ReliefPay logo | 2. Campaigns with Back button and split donation form |
 |---|---|
 | ![Landing page](docs/screenshots/01-landing.png) | ![Campaigns](docs/screenshots/02-campaigns.png) |
 | **3. Login with demo accounts** | **4. Donor dashboard with receipt downloads** |

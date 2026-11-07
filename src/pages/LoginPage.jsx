@@ -52,7 +52,7 @@ export default function LoginPage() {
       <div className="w-full max-w-2xl">
         {/* Back Button */}
         <div className="mb-8">
-          <BackButton to="/" label="Back to Home" isDark={true} />
+          <BackButton to="/" label="Back to Home" isDark={true} showLogo={false} />
         </div>
         
         {/* Header */}
