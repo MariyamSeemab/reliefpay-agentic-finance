@@ -172,6 +172,7 @@ export function openDb(filePath) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_donations_split ON donations(split_order_id)');
   addColumnIfMissing(db, 'payout_batches', 'sender_batch_id', 'TEXT');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_payout_batches_sender ON payout_batches(sender_batch_id)');
+  addColumnIfMissing(db, 'payout_items', 'payout_method', "TEXT NOT NULL DEFAULT 'PAYPAL_EMAIL'");
   return db;
 }
 

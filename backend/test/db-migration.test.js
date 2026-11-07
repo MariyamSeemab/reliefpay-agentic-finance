@@ -61,6 +61,8 @@ describe('db migration', () => {
     const columns = db.prepare('PRAGMA table_info(donations)').all().map((c) => c.name);
     assert.ok(columns.includes('refunded_cents'));
     assert.ok(columns.includes('split_order_id'));
+    const itemColumns = db.prepare('PRAGMA table_info(payout_items)').all();
+    assert.equal(itemColumns.find((c) => c.name === 'payout_method')?.dflt_value, "'PAYPAL_EMAIL'");
     const tables = db.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all().map((t) => t.name);
     assert.ok(tables.includes('split_orders'));
     assert.ok(tables.includes('refunds'));

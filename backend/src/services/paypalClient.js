@@ -145,7 +145,7 @@ export function createPayPalClient({ clientId, clientSecret, apiBase, fetch = gl
             email_message: emailMessage,
           },
           items: items.map((item) => ({
-            recipient_type: 'EMAIL',
+            recipient_type: item.recipientType || 'EMAIL',
             amount: { value: item.amount, currency: item.currency },
             receiver: item.receiver,
             sender_item_id: item.senderItemId,

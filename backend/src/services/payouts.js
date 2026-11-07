@@ -27,6 +27,30 @@ const ITEM_STATUS_MAP = {
   REVERSED: 'REVERSED',
 };
 
+// Payout methods an ADMIN can pick per payout item. Only PayPal email is
+// supported. Venmo payouts need recipient_wallet VENMO with a US mobile phone
+// (or Venmo handle), USD only, and the PayPal sandbox does not support the
+// PHONE recipient type; ReliefPay stores no phone or Venmo handle for
+// payouts, so Venmo is listed as unsupported instead of being faked.
+export const PAYOUT_METHODS = [
+  { id: 'PAYPAL_EMAIL', label: 'PayPal email', supported: true, recipientType: 'EMAIL' },
+  {
+    id: 'VENMO',
+    label: 'Venmo',
+    supported: false,
+    reason: 'Venmo payouts need a US mobile number or Venmo handle (USD only), and the PayPal sandbox cannot send them.',
+  },
+];
+const DEFAULT_PAYOUT_METHOD = 'PAYPAL_EMAIL';
+
+function payoutMethod(id) {
+  return PAYOUT_METHODS.find((m) => m.id === id);
+}
+
+export function listPayoutMethods() {
+  return PAYOUT_METHODS.map(({ id, label, supported, reason }) => ({ id, label, supported, reason: reason ?? null }));
+}
+
 export function maskEmail(email) {
   if (!email || !email.includes('@')) return email ?? null;
   const [local, domain] = email.split('@');
@@ -75,6 +99,7 @@ export function mapBatch(db, row) {
       amount: toDollars(i.amount_cents),
       status: i.status,
       receiverEmail: maskEmail(i.receiver_email),
+      payoutMethod: i.payout_method || DEFAULT_PAYOUT_METHOD,
       paypalItemId: i.paypal_item_id,
       transactionId: i.paypal_transaction_id,
       error: i.error,
@@ -179,6 +204,39 @@ export function draftPayoutBatch(db, config, { actor, userId, campaignId, applic
   return getPayoutBatch(db, batchId);
 }
 
+// ADMIN-only, DRAFT-only change of one item's payout method. Not exposed to
+// the AI agent; it only changes how a later human release is sent.
+export function setPayoutItemMethod(db, { user, batchId, itemId, payoutMethod: methodId }) {
+  if (user?.role !== 'ADMIN') throw new HttpError(403, 'FORBIDDEN', 'Only an ADMIN can change payout methods');
+  const method = typeof methodId === 'string' ? payoutMethod(methodId) : undefined;
+  if (!method) throw new HttpError(400, 'INVALID_PAYOUT_METHOD', 'Unknown payout method');
+  if (!method.supported) throw new HttpError(400, 'UNSUPPORTED_PAYOUT_METHOD', method.reason);
+  const batch = getBatchRow(db, batchId);
+  if (!batch) throw new HttpError(404, 'NOT_FOUND', 'Payout batch not found');
+  if (batch.status !== 'DRAFT') {
+    throw new HttpError(409, 'BATCH_NOT_EDITABLE', `Payout methods can only change while the batch is DRAFT (batch is ${batch.status})`);
+  }
+  const item = db.prepare('SELECT * FROM payout_items WHERE id = ? AND batch_id = ?').get(itemId, batch.id);
+  if (!item) throw new HttpError(404, 'NOT_FOUND', 'Payout item not found in this batch');
+
+  const previous = item.payout_method || DEFAULT_PAYOUT_METHOD;
+  if (previous !== method.id) {
+    tx(db, () => {
+      const now = new Date().toISOString();
+      db.prepare('UPDATE payout_items SET payout_method = ?, updated_at = ? WHERE id = ?').run(method.id, now, item.id);
+      db.prepare('UPDATE payout_batches SET updated_at = ? WHERE id = ?').run(now, batch.id);
+      writeAudit(db, {
+        actor: actorFromUser(user),
+        action: 'PAYOUT_METHOD_CHANGED',
+        target: batchTarget(batch.id),
+        status: 'RECORDED',
+        details: { itemId: item.id, applicationId: item.application_id, from: previous, to: method.id },
+      });
+    });
+  }
+  return getPayoutBatch(db, batch.id);
+}
+
 // PayPal rejects a sender_batch_id it saw in the last 30 days, and a re-seeded
 // database reuses batch ids such as PB-SEED-001, so the batch id alone is not
 // unique enough. Limit is 255 characters; this is about 30.
@@ -231,6 +289,10 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
   if (items.length === 0 || notApproved.length > 0) {
     throw new HttpError(409, 'APPLICATIONS_NOT_ELIGIBLE', 'Some applications are no longer approved', { offendingIds: notApproved });
   }
+  const unsupported = items.filter((i) => !payoutMethod(i.payout_method || DEFAULT_PAYOUT_METHOD)?.supported).map((i) => i.id);
+  if (unsupported.length > 0) {
+    throw new HttpError(409, 'UNSUPPORTED_PAYOUT_METHOD', 'Some payout items use an unsupported payout method', { offendingIds: unsupported });
+  }
   const totalCents = items.reduce((sum, i) => sum + i.amount_cents, 0);
   const availableCents = campaignAvailableCents(db, batch.campaign_id);
   if (totalCents > availableCents) {
@@ -260,8 +322,11 @@ export async function releasePayoutBatch(db, paypal, config, { user, batchId, au
       senderBatchId,
       emailSubject: 'You have received ReliefPay disaster relief funds',
       emailMessage: `Relief payment from the campaign "${campaign?.title ?? batch.campaign_id}".`,
+      // Every supported method is PAYPAL_EMAIL today; the sandbox override
+      // PAYOUT_RECEIVER_EMAIL applies to it.
       items: items.map((i) => ({
         senderItemId: i.id,
+        recipientType: payoutMethod(i.payout_method || DEFAULT_PAYOUT_METHOD).recipientType,
         receiver: config.payoutReceiverEmail || i.receiver_email,
         amount: (i.amount_cents / 100).toFixed(2),
         currency: batch.currency,

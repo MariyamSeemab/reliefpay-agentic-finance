@@ -204,6 +204,96 @@ describe('payouts', () => {
     );
   });
 
+  test('payout methods: list exposes PayPal email (supported) and Venmo (unsupported); items default to PAYPAL_EMAIL', async () => {
+    const res = await request(ctx.app).get('/api/payouts').set(bearer(admin));
+    assert.equal(res.status, 200);
+    const methods = Object.fromEntries(res.body.payoutMethods.map((m) => [m.id, m]));
+    assert.equal(methods.PAYPAL_EMAIL.supported, true);
+    assert.equal(methods.VENMO.supported, false);
+    assert.ok(methods.VENMO.reason);
+    const seeded = res.body.batches.find((b) => b.id === 'PB-SEED-001');
+    assert.deepEqual(seeded.items.map((i) => i.payoutMethod), ['PAYPAL_EMAIL', 'PAYPAL_EMAIL']);
+  });
+
+  const setMethod = (payoutMethod, { token = admin, batchId = 'PB-SEED-001', itemId = 'PI-SEED-001' } = {}) =>
+    request(ctx.app).patch(`/api/payouts/${batchId}/items/${itemId}`).set(bearer(token)).send({ payoutMethod });
+  const itemMethod = (id) => ctx.db.prepare('SELECT payout_method FROM payout_items WHERE id = ?').get(id).payout_method;
+  const methodAudits = () => ctx.db.prepare("SELECT * FROM audit_logs WHERE action = 'PAYOUT_METHOD_CHANGED'").all();
+
+  test('ADMIN setting a supported method on a DRAFT item stores it and audits only real changes', async () => {
+    ctx.db.prepare("UPDATE payout_items SET payout_method = 'LEGACY' WHERE id = 'PI-SEED-001'").run();
+    const res = await setMethod('PAYPAL_EMAIL');
+    assert.equal(res.status, 200);
+    assert.equal(res.body.batch.items.find((i) => i.id === 'PI-SEED-001').payoutMethod, 'PAYPAL_EMAIL');
+    assert.equal(itemMethod('PI-SEED-001'), 'PAYPAL_EMAIL');
+    const audits = methodAudits();
+    assert.equal(audits.length, 1);
+    assert.deepEqual(JSON.parse(audits[0].details_json), {
+      itemId: 'PI-SEED-001',
+      applicationId: 'RPA-2026-0015',
+      from: 'LEGACY',
+      to: 'PAYPAL_EMAIL',
+    });
+
+    // Same value again: no new audit entry.
+    assert.equal((await setMethod('PAYPAL_EMAIL')).status, 200);
+    assert.equal(methodAudits().length, 1);
+  });
+
+  test('Venmo and unknown methods are rejected with 400 and nothing changes', async () => {
+    const venmo = await setMethod('VENMO');
+    assert.equal(venmo.status, 400);
+    assert.equal(venmo.body.error, 'UNSUPPORTED_PAYOUT_METHOD');
+    const unknown = await setMethod('BANK_WIRE');
+    assert.equal(unknown.status, 400);
+    assert.equal(unknown.body.error, 'INVALID_PAYOUT_METHOD');
+    assert.equal(itemMethod('PI-SEED-001'), 'PAYPAL_EMAIL');
+    assert.equal(methodAudits().length, 0);
+  });
+
+  test('non-ADMIN roles cannot change a payout method -> 403', async () => {
+    const reviewer = await loginAs(ctx.app, REVIEWER);
+    const auditor = await loginAs(ctx.app, 'elena@auditcore.org');
+    assert.equal((await setMethod('PAYPAL_EMAIL', { token: reviewer })).status, 403);
+    assert.equal((await setMethod('PAYPAL_EMAIL', { token: auditor })).status, 403);
+    assert.equal(methodAudits().length, 0);
+  });
+
+  test('payout method cannot change once the batch left DRAFT; unknown item -> 404', async () => {
+    assert.equal((await setMethod('PAYPAL_EMAIL', { itemId: 'PI-NOPE' })).status, 404);
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    const res = await setMethod('PAYPAL_EMAIL');
+    assert.equal(res.status, 409);
+    assert.equal(res.body.error, 'BATCH_NOT_EDITABLE');
+  });
+
+  test('release sends recipient_type from the stored method and refuses unsupported methods', async () => {
+    ctx.db.prepare("UPDATE payout_items SET payout_method = 'VENMO' WHERE id = 'PI-SEED-002'").run();
+    const blocked = await release('PB-SEED-001', CODE);
+    assert.equal(blocked.status, 409);
+    assert.equal(blocked.body.error, 'UNSUPPORTED_PAYOUT_METHOD');
+    assert.deepEqual(blocked.body.offendingIds, ['PI-SEED-002']);
+    assert.equal(payoutPosts().length, 0);
+    assert.equal(batchRow('PB-SEED-001').status, 'DRAFT');
+
+    assert.equal((await setMethod('PAYPAL_EMAIL', { itemId: 'PI-SEED-002' })).status, 200);
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    assert.deepEqual(payoutPosts()[0].body.items.map((i) => i.recipient_type), ['EMAIL', 'EMAIL']);
+  });
+
+  test('PAYOUT_RECEIVER_EMAIL still overrides PayPal email items after a method change', async () => {
+    await setup({ PAYOUT_RECEIVER_EMAIL: 'sandbox-personal@example.com' });
+    assert.equal((await setMethod('PAYPAL_EMAIL')).status, 200);
+    assert.equal((await release('PB-SEED-001', CODE)).status, 200);
+    assert.deepEqual(
+      payoutPosts()[0].body.items.map((i) => [i.recipient_type, i.receiver]),
+      [
+        ['EMAIL', 'sandbox-personal@example.com'],
+        ['EMAIL', 'sandbox-personal@example.com'],
+      ],
+    );
+  });
+
   test('5 wrong codes -> 423 on the 6th try, even with the right code', async () => {
     for (let i = 0; i < 5; i += 1) {
       assert.equal((await release('PB-SEED-001', 'bad')).status, 403);

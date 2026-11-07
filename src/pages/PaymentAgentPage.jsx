@@ -39,11 +39,14 @@ export default function PaymentAgentPage() {
   const [releaseError, setReleaseError] = useState('');
   const [releasedBatch, setReleasedBatch] = useState(null);
   const [syncState, setSyncState] = useState({});
+  const [payoutMethods, setPayoutMethods] = useState([]);
+  const [methodState, setMethodState] = useState({});
 
   const loadBatches = useCallback(async () => {
     try {
-      const { batches: list } = await apiFetch('/payouts');
+      const { batches: list, payoutMethods: methods } = await apiFetch('/payouts');
       setBatches(list);
+      setPayoutMethods(methods || []);
       setLoadError('');
     } catch (err) {
       setLoadError(err.message || 'Could not load payout batches');
@@ -116,6 +119,23 @@ export default function PaymentAgentPage() {
       setSyncState((prev) => ({ ...prev, [batchId]: { loading: false, error: err.message || 'Sync failed' } }));
     }
   };
+
+  // ADMIN-only, DRAFT-only; the server stores and audits the choice.
+  const changePayoutMethod = async (batchId, itemId, payoutMethod) => {
+    setMethodState((prev) => ({ ...prev, [itemId]: { loading: true, error: '' } }));
+    try {
+      const { batch } = await apiFetch(
+        `/payouts/${encodeURIComponent(batchId)}/items/${encodeURIComponent(itemId)}`,
+        { method: 'PATCH', body: { payoutMethod } },
+      );
+      replaceBatch(batch);
+      setMethodState((prev) => ({ ...prev, [itemId]: { loading: false, error: '' } }));
+    } catch (err) {
+      setMethodState((prev) => ({ ...prev, [itemId]: { loading: false, error: err.message || 'Could not change payout method' } }));
+    }
+  };
+
+  const unsupportedMethods = payoutMethods.filter((m) => !m.supported);
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -272,6 +292,7 @@ export default function PaymentAgentPage() {
                         <th className="px-4 py-2 text-left font-semibold text-slate-900">App ID</th>
                         <th className="px-4 py-2 text-left font-semibold text-slate-900">Beneficiary</th>
                         <th className="px-4 py-2 text-right font-semibold text-slate-900">Amount</th>
+                        <th className="px-4 py-2 text-left font-semibold text-slate-900">Payout Method</th>
                         <th className="px-4 py-2 text-left font-semibold text-slate-900">Priority</th>
                         <th className="px-4 py-2 text-left font-semibold text-slate-900">Status</th>
                       </tr>
@@ -285,6 +306,25 @@ export default function PaymentAgentPage() {
                             {item.receiverEmail && <span className="block text-xs text-slate-500 font-mono">{item.receiverEmail}</span>}
                           </td>
                           <td className="px-4 py-3 text-right font-semibold">{formatMoney(item.amount, payout.currency)}</td>
+                          <td className="px-4 py-3">
+                            <select
+                              aria-label={`Payout method for ${item.beneficiaryName}`}
+                              value={item.payoutMethod || 'PAYPAL_EMAIL'}
+                              onChange={(e) => changePayoutMethod(payout.id, item.id, e.target.value)}
+                              disabled={payout.status !== 'DRAFT' || methodState[item.id]?.loading}
+                              title={payout.status !== 'DRAFT' ? 'Payout methods can only change while the batch is DRAFT' : undefined}
+                              className="px-2 py-1 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 outline-none disabled:bg-slate-100 disabled:text-slate-500"
+                            >
+                              {(payoutMethods.length ? payoutMethods : [{ id: 'PAYPAL_EMAIL', label: 'PayPal email', supported: true }]).map((m) => (
+                                <option key={m.id} value={m.id} disabled={!m.supported} title={m.reason || undefined}>
+                                  {m.label}{m.supported ? '' : ' (not supported)'}
+                                </option>
+                              ))}
+                            </select>
+                            {methodState[item.id]?.error && (
+                              <span className="block text-xs text-red-600 mt-1">{methodState[item.id].error}</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded text-xs font-semibold ${
                               item.priority === 'CRITICAL' ? 'bg-red-100 text-red-700' :
@@ -309,6 +349,9 @@ export default function PaymentAgentPage() {
                       ))}
                     </tbody>
                   </table>
+                  {unsupportedMethods.map((m) => (
+                    <p key={m.id} className="text-xs text-slate-500 mt-2">{m.label} is not available: {m.reason}</p>
+                  ))}
                 </div>
 
                 {/* Action Buttons */}
