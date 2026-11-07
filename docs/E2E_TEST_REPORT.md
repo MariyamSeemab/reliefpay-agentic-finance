@@ -1,12 +1,68 @@
 # ReliefPay end-to-end test report
 
+## Run 2: local run after fixing F1-F3
+
+- **Date:** 7 November 2026, 12:44 to 13:10 UTC
+- **Target:** local run of branch `DD2` with the F1-F3 fixes (commit `e44a07b`): `npm run build`, then the backend on http://localhost:4000 with `AG_STUDIO_AI=on` and `AG_STUDIO_AI_PROVIDER=bedrock`. Fresh seed data (`npm run seed:reset --prefix backend`) before and after the run.
+- **Environment:** PayPal **sandbox**, Groq `openai/gpt-oss-120b` (AI Command Centre and split suggestion), Amazon Bedrock `us.amazon.nova-2-lite-v1:0` in us-east-1 (AG Studio assistant, through the developer's AWS CLI credentials).
+- **Method:** Playwright (Chromium, 1366x800) driving the real UI, one step at a time, with each screenshot taken after the page finished loading. The 20 screenshots are in [`docs/screenshots/`](screenshots/) and are listed in the README.
+- **Automated tests:** `npm test --prefix backend`: 136 of 136 pass (133 existing plus 3 new tests for F1-F3).
+
+### Results
+
+| # | Step | Result | Screenshot |
+|---|---|---|---|
+| 1 | Landing page | ✅ Pass | `01-landing.png` |
+| 2 | Campaigns directory with the split donation form | ✅ Pass | `02-campaigns.png` |
+| 3 | Login page with demo accounts | ✅ Pass | `03-login-demo-accounts.png` |
+| 4 | Donor dashboard | ✅ Pass | `04-donor-dashboard.png` |
+| 5 | Split $25 with **Suggest a split with AI** (Groq) | ✅ Pass. 60% Mumbra ($15.00), 40% Kerala ($10.00). The rationale quotes the funded share correctly (F1 fixed). | `05-split-ai-suggestion.png` |
+| 6 | **Confirm split** shows PayPal Donate and card buttons | ✅ Pass. PayPal order `33243512DB079494L` created with two purchase units. | `06-split-paypal-buttons.png` |
+| 7 | PayPal sandbox checkout popup | ✅ Opens on the PayPal sandbox login screen. Not logged in (no buyer password available). | `07-paypal-sandbox-popup.png` |
+| 8 | Admin dashboard | ✅ Pass | `08-admin-dashboard.png` |
+| 9 | Application management | ✅ Pass | `09-application-management.png` |
+| 10 | AI Command Centre answers with a markdown table | ✅ Pass. The table renders as an HTML table (F2 fixed). | `10-ai-command-centre-table.png` |
+| 11 | AI Command Centre drafts a payout batch | ✅ Pass. The agent drafted `PB-01cdca11` ($185, RPA-2026-0018). Its first attempt included ineligible applications and was rejected by the server with `APPLICATIONS_NOT_ELIGIBLE`, then it retried correctly. | `11-ai-command-centre-draft-batch.png` |
+| 12 | Payment Agent shows the AI-drafted batch | ✅ Pass | `12-payment-agent-draft.png` |
+| 13 | Authorization dialog | ✅ Pass. The code field is empty and is a password field. | `13-authorize-dialog-empty-code.png` |
+| 14 | Release the batch, then **Refresh status from PayPal** | ✅ Pass. PayPal accepted the release (PayPal batch `GWYCMDEM5ZNRU`), and the refresh moved it to **SUCCESS**, 1/1 paid (F3 fixed). | `14-payout-released-success.png` |
+| 15 | AG Studio analytics | ✅ Pass. Licence accepted, no watermark. | `15-analytics-ag-studio.png` |
+| 16 | AG Studio AI Assistant on Bedrock (Edit mode) | ✅ Pass. "Which active campaigns are furthest from their target?" was answered correctly: Kerala $2,500 short, Mumbra $1,320 short. The answer took about 2.5 minutes. | `16-ag-studio-assistant-bedrock.png` |
+| 17 | Donations and refunds panel | ✅ Pass. Shows the two new split rows as PENDING (buyer did not approve) and the seeded completed donations. | `17-refunds-panel.png` |
+| 18 | Auditor audit log | ✅ Pass. Shows `AI_CHAT`, `AI_TOOL_CALL` (including the failed draft attempt), `PAYOUT_DRAFTED`, `PAYOUT_RELEASED`, `PAYOUT_SYNCED`, `DONATION_SPLIT_ORDER_CREATED` and `AI_SPLIT_SUGGESTED`. | `18-auditor-audit-log.png` |
+| 19 | Beneficiary dashboard | ✅ Pass (mock data, as noted in the README) | `19-beneficiary-dashboard.png` |
+| 20 | Volunteer dashboard | ✅ Pass (mock data, as noted in the README) | `20-volunteer-dashboard.png` |
+
+### Findings from run 1
+
+| ID | Status | Evidence |
+|---|---|---|
+| F1 | ✅ Fixed | The split prompt now gets precomputed `fundedPercent` and `remaining`. The rationale reads "cmp-01 has fundedPercent 73.6 and remaining 1320, lower than cmp-02's fundedPercent 79.2 and remaining 2500". Screenshot `05-split-ai-suggestion.png`, plus a backend test. |
+| F2 | ✅ Fixed | Command Centre markdown renders pipe tables as HTML tables. Screenshots `10-ai-command-centre-table.png` and `11-ai-command-centre-draft-batch.png`, plus a test. |
+| F3 | ✅ Fixed | The first release stores a unique `sender_batch_id` and a retry reuses it. Release of `PB-01cdca11` was accepted by PayPal and reached SUCCESS after refresh. Screenshot `14-payout-released-success.png`, audit entries `PAYOUT_RELEASED` and `PAYOUT_SYNCED` in `18-auditor-audit-log.png`, plus a test. |
+| F4 | Open (info) | The AG Studio assistant on Bedrock still takes a long time per answer (about 2.5 minutes in this run). |
+| F5 | Open (info) | Render's free plan still resets the SQLite data on restart. Not affected by this run. |
+
+### Notes on this run
+
+- The release in step 14 was submitted through the authorization dialog in the visible Playwright browser at 12:55:36 UTC, right after screenshot 13. The automation script did not type the code. The audit log shows that single accepted attempt by the admin session and no rejected attempts. The code does not appear in any screenshot, log or report.
+- The webhook for the payout could not reach a local server, so the batch status came from the "Refresh status from PayPal" button (`PAYOUT_SYNCED`), not from a webhook.
+- At 1366 px wide the auditor dashboard is slightly wider than the window and scrolls horizontally. Screenshot 18 was taken scrolled to the left edge.
+
+### Still needs manual testing
+
+- **PayPal buyer approval** for a single donation and for a split donation: it needs the sandbox buyer password, so this run stopped at the PayPal login popup.
+- **Refund of a real capture**: it needs a captured donation. The donations in this run were not approved by a buyer, so the refund flow is covered by automated tests only.
+
+## Run 1: live deployment
+
 - **Date:** 7 November 2026, 12:09 to 12:28 UTC
 - **Target:** live deployment https://reliefpay.onrender.com (Render, `main` at `b9639fc`)
 - **Environment:** PayPal **sandbox**, Groq `openai/gpt-oss-120b`, Amazon Bedrock `us.amazon.nova-2-lite-v1:0` (us-east-1)
-- **Method:** Playwright (Chromium, 1366x800) driving the real UI, plus direct API calls for evidence. Screenshots are in [`docs/e2e/`](e2e/).
+- **Method:** Playwright (Chromium, 1366x800) driving the real UI, plus direct API calls for evidence. Its screenshots were in `docs/e2e/` and were replaced by the run 2 set in `docs/screenshots/`; the file names below refer to the removed set.
 - **Automated tests:** `npm test --prefix backend`: 133 of 133 pass (PayPal, Groq and Bedrock faked).
 
-## Summary
+### Summary
 
 | # | Area | Result |
 |---|---|---|
@@ -24,13 +80,13 @@
 | 12 | Auditor audit log | ✅ Pass |
 | 13 | Role protection | ✅ Pass. Beneficiary blocked from analytics (403), donor blocked from refunds (403). Checked locally on the same code. |
 
-## Details
+### Details
 
-### 1-2. Landing, login, donor dashboard
+#### 1-2. Landing, login, donor dashboard
 The landing page, logo and hero carousel load. The Donor demo account logs in and reaches the dashboard.
 Screenshots: `01-home.png`, `02-donor-dashboard.png`.
 
-### 3-4. Split donation
+#### 3-4. Split donation
 - On `/campaigns`, a $25 split was set up across the two active campaigns.
 - **Suggest a split with AI** (Groq) returned 40% for Mumbra ($10.00) and 60% for Kerala ($15.00), with a short rationale.
 - **Confirm split** rendered the PayPal **Donate** and **Debit or Credit Card** buttons (JS SDK, sandbox client).
@@ -38,18 +94,18 @@ Screenshots: `01-home.png`, `02-donor-dashboard.png`.
 
 Screenshots: `03-split-ai-suggestion.png`, `04-split-paypal-buttons.png`.
 
-### 5-6. Admin dashboard and AI Command Centre
+#### 5-6. Admin dashboard and AI Command Centre
 - The admin dashboard shows USD totals from the API: $21,180.00 raised.
 - AI Command Centre question: "List approved applications for cmp-01". The agent called `list_applications` (shown in the UI and in the audit log as `AI_TOOL_CALL`) and returned RPA-2026-0015 ($200), RPA-2026-0021 ($220) and RPA-2026-0024 ($160).
 
 Screenshots: `05-admin-dashboard.png`, `06-ai-command-centre.png`.
 
-### 7-8. Payment Agent
+#### 7-8. Payment Agent
 - Draft batch `PB-SEED-001` ($420, two beneficiaries) is shown with **Authorize Payout**. Screenshot `07-payment-agent-draft.png`.
 - **Wrong code:** HTTP 403. The audit log shows `PAYOUT_RELEASE_REJECTED` with `INVALID_AUTH_CODE`.
 - **Correct code** (read from the server environment, never displayed): PayPal returned HTTP 400 `USER_BUSINESS_ERROR`. The audit log shows `PAYOUT_RELEASE_FAILED`, and the batch moved to `RELEASE_FAILED`. See finding F3.
 
-### 9-11. AG Studio analytics and Bedrock assistant
+#### 9-11. AG Studio analytics and Bedrock assistant
 - `/admin/analytics` loads the AG Studio report (KPIs, campaign progress, funded rate, net donations by campaign, campaign table) and the "Donations and refunds" panel. The licence was accepted: 0 console errors. Screenshot `08-analytics-ag-studio.png`.
 - The **AI Assistant** panel appears in **Edit** mode. Screenshot `09-analytics-edit-mode.png`.
 - Question 1, "Which active campaigns are furthest from their target?", was answered correctly: Kerala needs $2,500 more and Mumbra $1,320, matching the campaign data. Screenshot `10-ag-studio-assistant-bedrock-q1.png`.
@@ -57,10 +113,10 @@ Screenshots: `05-admin-dashboard.png`, `06-ai-command-centre.png`.
 - No HTTP 429 occurred. On Groq's free tier, the second question used to fail with 429.
 - AWS IAM shows the `reliefpay-render-bedrock` access key was last used at 12:23 UTC for `bedrock` in us-east-1. That proves the live app called Bedrock.
 
-### 12. Auditor
+#### 12. Auditor
 The Auditor role sees the audit log, including logins, AI tool calls and payout release attempts. Screenshot `12-auditor-audit-log.png`.
 
-## Findings
+### Findings
 
 | ID | Severity | Finding | Suggested fix |
 |---|---|---|---|
@@ -70,6 +126,6 @@ The Auditor role sees the audit log, including logins, AI tool calls and payout 
 | F4 | Info | The AG Studio assistant takes about 40 to 90 seconds per answer, and question 1 showed one internal "Could not run the query" step before it recovered. | Fine for a demo. Mention it in the video, or ask a question that was tried beforehand. |
 | F5 | Info | Render's free plan resets the SQLite data on redeploy or restart, so manual test records (split capture, payout release, refunds) are not kept. | Known limitation, already in the README. A persistent database is listed as future work. |
 
-## Not covered by this run
+### Not covered by this run
 - **Paying with the sandbox buyer account** (single donation, split donation): needs the sandbox buyer password. The user completed this manually. A live single-donation capture with a verified webhook was also recorded on 4 November 2026 (order `8G6559713T7281800`).
 - **Refunds through the UI:** they need a captured donation, and the database had been reset. They're covered by automated tests only.

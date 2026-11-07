@@ -19,25 +19,33 @@ Wired to the API: login/signup, campaigns, single and split donations, the admin
 
 ## End-to-end test report
 
-A Playwright run against the live Render deployment (PayPal sandbox, Groq and Amazon Bedrock) is documented in [docs/E2E_TEST_REPORT.md](docs/E2E_TEST_REPORT.md), with screenshots in [docs/e2e/](docs/e2e/).
-
-| AG Studio assistant on Amazon Bedrock | Split donation with AI suggestion |
-|---|---|
-| ![AG Studio assistant answer](docs/e2e/10-ag-studio-assistant-bedrock-q1.png) | ![Split donation](docs/e2e/04-split-paypal-buttons.png) |
+Playwright runs against the live Render deployment and against a local run (PayPal sandbox, Groq and Amazon Bedrock) are documented in [docs/E2E_TEST_REPORT.md](docs/E2E_TEST_REPORT.md).
 
 ## Screenshots
 
-Captured with Playwright against a local run (`npm run build` then `npm start --prefix backend`) using PayPal sandbox and Groq credentials.
+The screenshots below walk through the product in order. They were captured with Playwright (1366x800) against a local run (`npm run build`, then `npm start --prefix backend` with `AG_STUDIO_AI=on` and `AG_STUDIO_AI_PROVIDER=bedrock`) using real PayPal sandbox, Groq and Amazon Bedrock calls. All files are in [docs/screenshots/](docs/screenshots/).
 
-| Landing page | Admin dashboard |
+| 1. Landing page | 2. Campaigns and split donation form |
 |---|---|
-| ![Landing page](docs/screenshots/01-home.png) | ![Admin dashboard](docs/screenshots/03-admin-dashboard.png) |
-| **AI Command Centre (live Groq tool call)** | **Payment Agent (draft batch awaiting authorization)** |
-| ![AI Command Centre](docs/screenshots/04-ai-command-centre-groq.png) | ![Payment Agent](docs/screenshots/05-payment-agent.png) |
-| **Campaigns (USD, from the API)** | **Login with demo accounts** |
-| ![Campaigns](docs/screenshots/06-campaigns.png) | ![Login](docs/screenshots/02-login.png) |
-| **AG Studio analytics (admin)** | |
-| ![Analytics](docs/screenshots/07-analytics.png) | |
+| ![Landing page](docs/screenshots/01-landing.png) | ![Campaigns](docs/screenshots/02-campaigns.png) |
+| **3. Login with demo accounts** | **4. Donor dashboard** |
+| ![Login](docs/screenshots/03-login-demo-accounts.png) | ![Donor dashboard](docs/screenshots/04-donor-dashboard.png) |
+| **5. Split donation: AI suggestion (Groq)** | **6. Split donation: PayPal buttons after Confirm split** |
+| ![AI split suggestion](docs/screenshots/05-split-ai-suggestion.png) | ![PayPal buttons](docs/screenshots/06-split-paypal-buttons.png) |
+| **7. PayPal sandbox checkout popup** | **8. Admin dashboard** |
+| ![PayPal popup](docs/screenshots/07-paypal-sandbox-popup.png) | ![Admin dashboard](docs/screenshots/08-admin-dashboard.png) |
+| **9. Application management** | **10. AI Command Centre: answer as a table** |
+| ![Applications](docs/screenshots/09-application-management.png) | ![AI Command Centre table](docs/screenshots/10-ai-command-centre-table.png) |
+| **11. AI Command Centre: drafting a payout batch** | **12. Payment Agent: AI-drafted batch** |
+| ![AI drafts a batch](docs/screenshots/11-ai-command-centre-draft-batch.png) | ![Payment Agent draft](docs/screenshots/12-payment-agent-draft.png) |
+| **13. Authorization dialog (code field empty)** | **14. Batch released, SUCCESS from PayPal** |
+| ![Authorize dialog](docs/screenshots/13-authorize-dialog-empty-code.png) | ![Payout released](docs/screenshots/14-payout-released-success.png) |
+| **15. AG Studio analytics (licensed, no watermark)** | **16. AG Studio AI Assistant on Amazon Bedrock** |
+| ![Analytics](docs/screenshots/15-analytics-ag-studio.png) | ![AG Studio assistant](docs/screenshots/16-ag-studio-assistant-bedrock.png) |
+| **17. Donations and refunds panel** | **18. Auditor audit log** |
+| ![Refunds panel](docs/screenshots/17-refunds-panel.png) | ![Audit log](docs/screenshots/18-auditor-audit-log.png) |
+| **19. Beneficiary dashboard** | **20. Volunteer dashboard** |
+| ![Beneficiary dashboard](docs/screenshots/19-beneficiary-dashboard.png) | ![Volunteer dashboard](docs/screenshots/20-volunteer-dashboard.png) |
 
 ## Architecture
 
