@@ -117,7 +117,48 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   verification_status TEXT,
   processed INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS split_orders (
+  id TEXT PRIMARY KEY,
+  paypal_order_id TEXT UNIQUE,
+  user_id TEXT,
+  donor_name TEXT,
+  total_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  status TEXT NOT NULL CHECK (status IN ('PENDING','COMPLETED','PARTIALLY_COMPLETED','FAILED')),
+  ai_suggested INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS refunds (
+  id TEXT PRIMARY KEY, -- PayPal refund id
+  donation_id TEXT NOT NULL REFERENCES donations(id),
+  capture_id TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  applied_cents INTEGER NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  status TEXT NOT NULL, -- PayPal refund status
+  source TEXT NOT NULL CHECK (source IN ('ADMIN','WEBHOOK')),
+  event_type TEXT, -- PAYMENT.CAPTURE.REFUNDED / REVERSED when from a webhook
+  note TEXT,
+  created_by_user_id TEXT,
+  counted INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_refunds_donation ON refunds(donation_id);
 `;
+
+// Adds a column to an existing table when an older DB file lacks it.
+// table, column and ddl are internal constants, never user input.
+function addColumnIfMissing(db, table, column, ddl) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
+}
 
 export function openDb(filePath) {
   const db = new DatabaseSync(filePath);
@@ -126,6 +167,9 @@ export function openDb(filePath) {
     db.exec('PRAGMA journal_mode = WAL');
   }
   db.exec(SCHEMA);
+  addColumnIfMissing(db, 'donations', 'refunded_cents', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing(db, 'donations', 'split_order_id', 'TEXT');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_donations_split ON donations(split_order_id)');
   return db;
 }
 

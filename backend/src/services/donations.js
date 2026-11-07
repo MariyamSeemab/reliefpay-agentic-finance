@@ -18,6 +18,8 @@ export function mapDonation(row) {
     status: row.status,
     paypalOrderId: row.paypal_order_id,
     paypalCaptureId: row.paypal_capture_id,
+    refundedAmount: toDollars(row.refunded_cents ?? 0),
+    splitOrderId: row.split_order_id ?? null,
     timestamp: row.created_at,
     updatedAt: row.updated_at,
   };

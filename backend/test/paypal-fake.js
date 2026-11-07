@@ -7,6 +7,9 @@ import { jsonResponse } from './helpers.js';
 //   verify        - verification_status for webhook verification (default 'SUCCESS')
 //   payoutBatch   - object or (id) => object returned by GET /v1/payments/payouts/:id
 //   payoutError   - HTTP status returned by POST /v1/payments/payouts instead of 201
+//   refundStatus  - status of refunds from POST /v2/payments/captures/:id/refund (default 'COMPLETED')
+//   refundError   - HTTP status returned by the refund call instead of 201
+//   refundFullValue - refund amount when the request has no amount (default '25.00')
 export function makeFakePayPal() {
   const calls = [];
   const state = {};
@@ -70,6 +73,26 @@ export function makeFakePayPal() {
           ? state.payoutBatch(id)
           : state.payoutBatch ?? { batch_header: { payout_batch_id: id, batch_status: 'PENDING' }, items: [] };
       return jsonResponse(200, payload);
+    }
+    const refund = /^\/v2\/payments\/captures\/([^/]+)\/refund$/.exec(pathname);
+    if (method === 'POST' && refund) {
+      if (state.refundError) {
+        return jsonResponse(state.refundError, {
+          name: 'UNPROCESSABLE_ENTITY',
+          debug_id: 'fake-refund-debug',
+          details: [{ issue: 'REFUND_AMOUNT_EXCEEDED' }],
+        });
+      }
+      n += 1;
+      return jsonResponse(201, {
+        id: 'REF-' + n,
+        status: state.refundStatus ?? 'COMPLETED',
+        amount: body?.amount ?? { currency_code: 'USD', value: state.refundFullValue ?? '25.00' },
+        links: [
+          { rel: 'self', href: 'https://api-m.sandbox.paypal.com/v2/payments/refunds/REF-' + n, method: 'GET' },
+          { rel: 'up', href: 'https://api-m.sandbox.paypal.com/v2/payments/captures/' + refund[1], method: 'GET' },
+        ],
+      });
     }
     if (method === 'POST' && pathname === '/v1/notifications/verify-webhook-signature') {
       return jsonResponse(200, { verification_status: state.verify ?? 'SUCCESS' });
