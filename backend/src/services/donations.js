@@ -36,14 +36,14 @@ export function listDonations(db) {
     .map(mapDonation);
 }
 
-function isValidAmount(amount) {
+export function isValidAmount(amount) {
   if (typeof amount !== 'number' || !Number.isFinite(amount)) return false;
   if (amount < MIN_DONATION || amount > MAX_DONATION) return false;
   const cents = amount * 100;
   return Math.abs(cents - Math.round(cents)) < 1e-6;
 }
 
-function centsFromValue(value) {
+export function centsFromValue(value) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.round(n * 100) : null;
 }

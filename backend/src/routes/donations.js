@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireRole } from '../auth.js';
 import { captureDonationOrder, createDonationOrder, listDonations } from '../services/donations.js';
 import { refundDonation } from '../services/refunds.js';
+import { captureSplitOrder, createSplitOrder } from '../services/splitDonations.js';
 
 export function donationsRouter({ db, config, paypal }) {
   const router = Router();
@@ -20,6 +21,20 @@ export function donationsRouter({ db, config, paypal }) {
 
   router.get('/donations', auth, requireRole('ADMIN', 'AUDITOR'), (req, res) => {
     res.json({ donations: listDonations(db) });
+  });
+
+  router.post('/donations/split-orders', auth, async (req, res) => {
+    const result = await createSplitOrder(db, paypal, config, {
+      user: req.user,
+      allocations: req.body?.allocations,
+      aiSuggested: req.body?.aiSuggested,
+    });
+    res.status(201).json(result);
+  });
+
+  router.post('/donations/split-orders/:orderId/capture', auth, async (req, res) => {
+    const result = await captureSplitOrder(db, paypal, { user: req.user, orderId: req.params.orderId });
+    res.json(result);
   });
 
   router.post('/donations/:id/refund', auth, requireRole('ADMIN'), async (req, res) => {

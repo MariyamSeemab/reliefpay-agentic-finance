@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { CampaignGrid } from '../components/campaigns/CampaignGrid';
 import { CampaignDetail } from '../components/campaigns/CampaignDetail';
+import { SplitDonationPanel } from '../components/campaigns/SplitDonationPanel';
 import { apiFetch } from '../lib/api';
 import { formatMoney } from '../lib/money';
 import { Search, AlertCircle } from 'lucide-react';
@@ -95,7 +96,10 @@ export default function CampaignsPage() {
             </button>
           </div>
         ) : isAuthenticated ? (
-          <CampaignGrid campaigns={filteredCampaigns} onSelectCampaign={setSelectedCampaign} />
+          <>
+            <SplitDonationPanel campaigns={campaigns} onCampaignsChanged={loadCampaigns} />
+            <CampaignGrid campaigns={filteredCampaigns} onSelectCampaign={setSelectedCampaign} />
+          </>
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
             <p className="text-slate-600 mb-4">Please login to view and support campaigns</p>

@@ -100,6 +100,23 @@ export function createPayPalClient({ clientId, clientSecret, apiBase, fetch = gl
       });
     },
 
+    // One order with one purchase unit per campaign (Orders v2 allows 1 to 10
+    // purchase_units). reference_id = campaign id, custom_id = donation id.
+    createSplitOrder({ units, currency, requestId }) {
+      return call('POST', '/v2/checkout/orders', {
+        requestId,
+        body: {
+          intent: 'CAPTURE',
+          purchase_units: units.map((u) => ({
+            reference_id: u.campaignId,
+            custom_id: u.donationId,
+            description: String(u.description || '').slice(0, 127),
+            amount: { currency_code: currency, value: u.amount },
+          })),
+        },
+      });
+    },
+
     captureOrder(orderId, requestId) {
       return call('POST', `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { requestId, body: {} });
     },

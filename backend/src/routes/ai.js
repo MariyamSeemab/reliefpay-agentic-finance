@@ -3,6 +3,7 @@ import { actorFromUser, writeAudit } from '../audit.js';
 import { requireAuth, requireRole } from '../auth.js';
 import { runAgent } from '../ai/agent.js';
 import { GroqError } from '../ai/groqClient.js';
+import { suggestSplit } from '../ai/splitSuggest.js';
 import { HttpError } from '../errors.js';
 
 const MAX_MESSAGES = 12;
@@ -57,6 +58,32 @@ export function aiRouter({ db, config, groq }) {
       throw new HttpError(502, 'AI_ERROR', 'The AI service request failed');
     }
     res.json({ ...result, model: config.groq.model });
+  });
+
+  // Any signed-in user. Proposes percentages only; never creates an order.
+  router.post('/ai/suggest-split', requireAuth(db, config), async (req, res) => {
+    const amount = req.body?.amount;
+    let suggestion;
+    try {
+      suggestion = await suggestSplit({ db, groq, amount });
+    } catch (err) {
+      if (!(err instanceof GroqError)) throw err;
+      console.error('[groq]', err.status, err.message);
+      if (err.status === 429) throw new HttpError(503, 'AI_RATE_LIMITED', 'Groq rate limit reached; try again shortly');
+      throw new HttpError(502, 'AI_ERROR', 'The AI service request failed');
+    }
+    writeAudit(db, {
+      actor: actorFromUser(req.user),
+      action: 'AI_SPLIT_SUGGESTED',
+      target: 'Split donation',
+      status: 'RECORDED',
+      details: {
+        amount,
+        model: config.groq.model,
+        allocations: suggestion.allocations.map((a) => ({ campaignId: a.campaignId, percent: a.percent })),
+      },
+    });
+    res.json({ ...suggestion, model: config.groq.model });
   });
 
   return router;
