@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { BarChart3, Eye, Info, Pencil } from 'lucide-react';
+import { BarChart3, Eye, Info, MessageCircle, Pencil, X } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
 import { DonationRefundsPanel } from '../components/admin/DonationRefundsPanel';
 import ReliefPayStudio from '../components/analytics/ReliefPayStudio';
@@ -8,11 +8,21 @@ import { apiFetch, getToken } from '../lib/api';
 
 // Admin analytics built with AG Studio over GET /api/analytics. Lazy-loaded from
 // App.jsx so AG Studio stays out of the main bundle.
+
+// AG Studio's own defaults (DEFAULT_PANEL_CONFIG) keep the AI Assistant panel
+// in edit mode only. `panels` is a managed property, so the floating button
+// adds the 'ai' panel to the right of view mode at runtime; edit mode keeps
+// the default layout. Declaring either mode means both must be declared.
+const EDIT_PANELS = { left: ['ai'], right: ['filters', 'edit', 'data'] };
+const PANELS_VIEW = { view: { left: [], right: ['filters'] }, edit: EDIT_PANELS };
+const PANELS_VIEW_WITH_AI = { view: { left: [], right: ['filters', 'ai'] }, edit: EDIT_PANELS };
+
 export default function AnalyticsPage() {
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [mode, setMode] = useState('view');
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -101,6 +111,7 @@ export default function AnalyticsPage() {
                   aiModels={data.studio.aiEnabled ? data.studio.aiModels : undefined}
                   token={getToken()}
                   mode={mode}
+                  panels={assistantOpen && data.studio.aiEnabled ? PANELS_VIEW_WITH_AI : PANELS_VIEW}
                 />
               </div>
             ) : (
@@ -111,6 +122,27 @@ export default function AnalyticsPage() {
 
             <DonationRefundsPanel onRefunded={load} />
           </div>
+        )}
+
+        {/* Floating AI Assistant toggle. Edit mode already shows the assistant panel.
+            When open, the button sits left of the 350px panel so the panel input stays clear. */}
+        {!isLoading && !loadError && data && hasData(data) && mode === 'view' && (
+          <button
+            type="button"
+            onClick={() => setAssistantOpen((open) => !open)}
+            disabled={!data.studio.aiEnabled}
+            aria-pressed={assistantOpen}
+            aria-label={assistantOpen ? 'Close AI Assistant' : 'Open AI Assistant'}
+            title={
+              data.studio.aiEnabled
+                ? (assistantOpen ? 'Close AI Assistant' : 'Open AI Assistant')
+                : 'The AI assistant is not enabled on this deployment'
+            }
+            className={`fixed bottom-6 ${assistantOpen ? 'right-[calc(350px+2.5rem)]' : 'right-6'} z-40 flex items-center gap-2 rounded-full bg-[#087E83] px-5 py-3 font-semibold text-white shadow-lg transition hover:bg-[#123B4A] disabled:cursor-not-allowed disabled:bg-slate-400`}
+          >
+            {assistantOpen ? <X className="h-5 w-5" /> : <MessageCircle className="h-5 w-5" />}
+            {assistantOpen ? 'Close assistant' : 'AI Assistant'}
+          </button>
         )}
       </div>
     </div>

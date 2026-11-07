@@ -9,6 +9,9 @@ import { AuditorDashboard } from '../components/dashboard/AuditorDashboard';
 import { Heart, LogOut, Settings, User, Menu, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { formatMoney } from '../lib/money';
+import { downloadTaxReceipts } from '../lib/taxReceipt';
+import { INITIAL_DONATIONS } from '../data/mockData';
+import { SettingsModal } from '../components/common/SettingsModal';
 
 const STAFF_ROLES = ['ADMIN', 'REVIEWER'];
 
@@ -37,6 +40,7 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState([]);
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffError, setStaffError] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const isStaff = STAFF_ROLES.includes(currentUser?.role) || !currentUser?.role;
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -142,7 +146,12 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <button className="p-2 hover:bg-slate-100 rounded-lg">
+              <button
+                onClick={() => setSettingsOpen(true)}
+                aria-label="Open settings"
+                title="Settings"
+                className="p-2 hover:bg-slate-100 rounded-lg"
+              >
                 <Settings className="w-5 h-5 text-slate-600" />
               </button>
 
@@ -406,7 +415,10 @@ export default function DashboardPage() {
                 <h2 className="text-3xl font-bold text-slate-900">Tax Receipts</h2>
                 <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
                   <p className="text-slate-600 mb-4">Download your tax receipts for donations</p>
-                  <button className="bg-[#087E83] hover:bg-[#123B4A] text-white font-bold px-6 py-2 rounded-lg transition">
+                  <button
+                    onClick={() => downloadTaxReceipts(INITIAL_DONATIONS, { donorName: currentUser?.name }).catch(() => {})}
+                    className="bg-[#087E83] hover:bg-[#123B4A] text-white font-bold px-6 py-2 rounded-lg transition"
+                  >
                     📥 Download All Receipts
                   </button>
                 </div>
@@ -472,6 +484,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {settingsOpen && (
+        <SettingsModal user={currentUser} onClose={() => setSettingsOpen(false)} onSignOut={handleLogout} />
+      )}
     </div>
   );
 }

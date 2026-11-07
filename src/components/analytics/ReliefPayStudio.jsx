@@ -11,7 +11,7 @@ if (import.meta.env.DEV) enableStudioDevValidations();
 // One AG Studio instance over the /api/analytics data. AG Studio leaves page
 // navigation to the host, so the page tabs here switch selectedPageId through
 // the Studio API.
-function StudioInstance({ data, aiModels, token, mode }) {
+function StudioInstance({ data, aiModels, token, mode, panels }) {
   const apiRef = useRef(null);
   const [selectedPageId, setSelectedPageId] = useState(reliefPayReport.selectedPageId);
   const studioData = useMemo(() => buildStudioData(data), [data]);
@@ -59,6 +59,7 @@ function StudioInstance({ data, aiModels, token, mode }) {
             ai={ai}
             initialState={reliefPayReport}
             mode={mode}
+            panels={panels}
             onApiReady={(event) => {
               apiRef.current = event.api;
             }}

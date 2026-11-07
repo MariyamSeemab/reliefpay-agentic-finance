@@ -18,6 +18,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0, 0)}>
               <img src="/imgs/logo.png" alt="ReliefPay Logo" className="h-12 w-auto" />
+              <span className="text-xl font-bold text-slate-900">ReliefPay</span>
             </div>
             <div className="hidden md:flex items-center gap-8">
               <button onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm text-slate-600 hover:text-slate-900 font-medium transition">About</button>
@@ -128,6 +129,22 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+
+        {/* Contact Support */}
+        <section id="support" className="py-12 px-6 bg-emerald-50 border border-emerald-100 rounded-2xl text-center space-y-4">
+          <div className="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center mx-auto">
+            <Mail className="w-6 h-6 text-emerald-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-slate-900">Contact our support team</h3>
+          <p className="text-sm text-slate-600">Questions about a donation, an application or a payout? Email us and we will help.</p>
+          <a
+            href="mailto:dineshrajdhanapathy@gmail.com"
+            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-6 py-3 rounded-lg transition"
+          >
+            <Mail className="w-4 h-4" />
+            dineshrajdhanapathy@gmail.com
+          </a>
+        </section>
       </main>
 
       {/* Footer */}
