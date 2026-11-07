@@ -21,60 +21,45 @@ ReliefPay is a disaster-relief platform where donors fund campaigns through PayP
 
 Wired to the API: login/signup, campaigns, single and split donations, the admin dashboard totals and charts, AI Command Centre, Payment Agent, the analytics page and refunds, application management, and the auditor dashboard and audit log. The donor dashboard mixes API data with sample data. Still showing mock data: the beneficiary and volunteer dashboards, AI verification, beneficiary registration and emergency application, and the map.
 
-## End-to-end test report
+## Documentation
 
-Playwright runs against the live Render deployment and against a local run (PayPal sandbox, Groq and Amazon Bedrock) are documented in [docs/E2E_TEST_REPORT.md](docs/E2E_TEST_REPORT.md).
+- [End-to-end test report](docs/E2E_TEST_REPORT.md): Playwright runs against the live Render deployment and a local run (PayPal sandbox, Groq and Amazon Bedrock).
+- [API reference](docs/API.md): every route, with its auth and role.
+- [Architecture diagram](docs/architecture/reliefpay-architecture.drawio) (draw.io), also shown [below](#architecture).
+- [Postman workspace](https://www.postman.com/orbital-module-cosmonaut-84618325-s-team/workspace/reliefpay-paypal-ai-hackathon): the API collection, ready to fork.
+- [docs/archive/](docs/archive/): the original October 2026 planning documents, kept for history and out of date.
 
 ## Screenshots
 
-The screenshots below walk through the product in order. They were captured with Playwright (1366x800; screenshots 1, 2, 4, 8, 12, 13, 15, 16 and 21-25 were retaken at 1440x900 in run 3) against a local run (`npm run build`, then `npm start --prefix backend` with `AG_STUDIO_AI=on` and `AG_STUDIO_AI_PROVIDER=bedrock`) using real PayPal sandbox, Groq and Amazon Bedrock calls. All files are in [docs/screenshots/](docs/screenshots/).
+Captured with Playwright against a local run with real PayPal sandbox, Groq and Amazon Bedrock calls. All files are in [docs/screenshots/](docs/screenshots/).
 
-| 1. Landing page with the ReliefPay logo | 2. Campaigns with Back button and split donation form |
+| Landing page | Campaigns and split donation |
 |---|---|
 | ![Landing page](docs/screenshots/01-landing.png) | ![Campaigns](docs/screenshots/02-campaigns.png) |
-| **3. Login with demo accounts** | **4. Donor dashboard with receipt downloads** |
-| ![Login](docs/screenshots/03-login-demo-accounts.png) | ![Donor dashboard](docs/screenshots/04-donor-dashboard.png) |
-| **5. Split donation: AI suggestion (Groq)** | **6. Split donation: PayPal buttons after Confirm split** |
+| **AI suggests a split (Groq)** | **One PayPal order for both campaigns** |
 | ![AI split suggestion](docs/screenshots/05-split-ai-suggestion.png) | ![PayPal buttons](docs/screenshots/06-split-paypal-buttons.png) |
-| **7. PayPal sandbox checkout popup** | **8. Admin dashboard** |
-| ![PayPal popup](docs/screenshots/07-paypal-sandbox-popup.png) | ![Admin dashboard](docs/screenshots/08-admin-dashboard.png) |
-| **9. Application management** | **10. AI Command Centre: answer as a table** |
-| ![Applications](docs/screenshots/09-application-management.png) | ![AI Command Centre table](docs/screenshots/10-ai-command-centre-table.png) |
-| **11. AI Command Centre: drafting a payout batch** | **12. Payment Agent: draft batch with beneficiary checkboxes** |
-| ![AI drafts a batch](docs/screenshots/11-ai-command-centre-draft-batch.png) | ![Payment Agent draft](docs/screenshots/12-payment-agent-draft.png) |
-| **13. Authorization dialog (code field empty)** | **14. Batch released, SUCCESS from PayPal** |
+| **PayPal sandbox checkout** | **Donor dashboard with tax receipts** |
+| ![PayPal popup](docs/screenshots/07-paypal-sandbox-popup.png) | ![Donor dashboard](docs/screenshots/04-donor-dashboard.png) |
+| **Admin dashboard** | **AI Command Centre answers with live data** |
+| ![Admin dashboard](docs/screenshots/08-admin-dashboard.png) | ![AI Command Centre table](docs/screenshots/10-ai-command-centre-table.png) |
+| **AI drafts a payout batch (it cannot release it)** | **Admin ticks who gets paid** |
+| ![AI drafts a batch](docs/screenshots/11-ai-command-centre-draft-batch.png) | ![Choose beneficiaries](docs/screenshots/23-payout-select-beneficiaries.png) |
+| **Human authorization code, checked on the server** | **PayPal Payouts: SUCCESS** |
 | ![Authorize dialog](docs/screenshots/13-authorize-dialog-empty-code.png) | ![Payout released](docs/screenshots/14-payout-released-success.png) |
-| **15. AG Studio analytics (licensed, no watermark)** | **16. AG Studio AI Assistant on Amazon Bedrock (View mode)** |
+| **AG Studio analytics** | **AG Studio AI Assistant on Amazon Bedrock** |
 | ![Analytics](docs/screenshots/15-analytics-ag-studio.png) | ![AG Studio assistant](docs/screenshots/16-ag-studio-assistant-bedrock.png) |
-| **17. Donations and refunds panel** | **18. Auditor audit log** |
+| **Donations and refunds** | **Auditor audit trail** |
 | ![Refunds panel](docs/screenshots/17-refunds-panel.png) | ![Audit log](docs/screenshots/18-auditor-audit-log.png) |
-| **19. Beneficiary dashboard** | **20. Volunteer dashboard** |
-| ![Beneficiary dashboard](docs/screenshots/19-beneficiary-dashboard.png) | ![Volunteer dashboard](docs/screenshots/20-volunteer-dashboard.png) |
-| **21. Landing page: Contact our support team** | **22. Settings panel from the header gear** |
-| ![Contact support](docs/screenshots/21-landing-contact-support.png) | ![Settings panel](docs/screenshots/22-settings-panel.png) |
-| **23. Choose who gets paid (1 of 2 ticked)** | **24. Floating AI Assistant in View mode** |
-| ![Choose beneficiaries](docs/screenshots/23-payout-select-beneficiaries.png) | ![Floating assistant](docs/screenshots/24-analytics-floating-assistant.png) |
-| **25. Tax receipt PDF (DON-901)** | **26. Landing footer with logo and working links** |
-| ![Tax receipt PDF](docs/screenshots/25-tax-receipt-pdf.png) | ![Landing footer](docs/screenshots/26-landing-footer.png) |
+| **Tax receipt PDF** | **Settings panel** |
+| ![Tax receipt PDF](docs/screenshots/25-tax-receipt-pdf.png) | ![Settings panel](docs/screenshots/22-settings-panel.png) |
+| **Login with demo accounts** | **Application management** |
+| ![Login](docs/screenshots/03-login-demo-accounts.png) | ![Applications](docs/screenshots/09-application-management.png) |
 
 ## Architecture
 
-```
-                        +-------------------------------+
-  Browser               |  Express 5 API (backend/)     |
- +-----------------+    |  port 4000                    |      +------------------------------+
- | React 18 SPA    |--->|  /api/*  JWT auth + roles     |----->| PayPal REST (sandbox)        |
- | (Vite, dist/)   |    |  serves dist/ in production   |      |  Orders v2  create/capture   |
- | PayPal JS SDK   |    |                               |      |  Payouts v1 create/show      |
- +-----------------+    |  node:sqlite  -> reliefpay.db |      |  Webhooks   verify signature |
-                        |                               |      +------------------------------+
-                        |  AI agent (src/ai)            |               |
-                        |   tools read DB, draft batch  |----->  Groq chat completions
-                        +-------------------------------+        (OpenAI-compatible)
-                                       ^
-                                       |  PayPal -> POST /api/webhooks/paypal
-```
+![ReliefPay architecture](docs/architecture/reliefpay-architecture.png)
 
+The editable source is [docs/architecture/reliefpay-architecture.drawio](docs/architecture/reliefpay-architecture.drawio); open it in [diagrams.net](https://app.diagrams.net/) (File > Open from > Device). Every API route is listed in [docs/API.md](docs/API.md).
 Money flow:
 
 1. A donor clicks the PayPal button. The API creates an order (`POST /api/donations/orders`), the donor approves it in the PayPal popup, and the API captures it (`POST /api/donations/orders/:orderId/capture`). The captured amount is added to the campaign. A split donation uses `POST /api/donations/split-orders` and `POST /api/donations/split-orders/:orderId/capture`; each captured purchase unit is added to its own campaign.
@@ -237,9 +222,11 @@ All money-moving calls go to the PayPal sandbox. Order capture (needs buyer appr
 ## Known limitations
 
 - **Refunds and reversals** now lower the campaign's raised total once (admin refund or webhook). Still recorded only: payout items that become `RETURNED` or `REVERSED` after `SUCCESS` (the disbursed total is unchanged). A refund event for a capture ReliefPay does not know is ignored, and a refund that arrives before its donation is counted is stored but not applied.
-- **Manual checks.** Split order approval and capture, and refunds against the live sandbox, need a buyer to approve in the browser; they are covered by tests with a faked PayPal, not by an automated live run.
+- **Buyer approval is manual.** Paying an order (single or split) needs a sandbox buyer to log in to the PayPal popup, so it cannot be fully automated. Split donations and payouts were checked by hand against the sandbox; refunds of a real capture are covered by tests with a faked PayPal.
 - **AG Studio watermark** shows without `AG_STUDIO_LICENSE`.
-- **AG Studio assistant is off by default.** Each assistant turn sends about 5k to 7k input tokens, and on Groq's `on_demand` tier (8,000 tokens per minute for `openai/gpt-oss-120b`) the second turn got HTTP 429 before any answer arrived. Set `AG_STUDIO_AI=on` with `AG_STUDIO_AI_PROVIDER=bedrock` (or a Groq tier with a higher limit). On Bedrock, image and file attachments and reasoning output are not forwarded, and a requested JSON reply format is asked for in the system prompt because Nova 2 Lite has no structured outputs on Converse.
+- **AG Studio assistant needs Bedrock.** Each assistant turn sends about 5k to 7k input tokens, which does not fit Groq's free tier (8,000 tokens per minute), so it is off unless `AG_STUDIO_AI=on` with `AG_STUDIO_AI_PROVIDER=bedrock`. An answer takes about 40 to 90 seconds. Opening it in View mode docks it on the right and narrows the report. On Bedrock, image and file attachments and reasoning output are not forwarded, and a JSON reply format is asked for in the system prompt because Nova 2 Lite has no structured outputs on Converse.
+- **Demo data resets on Render.** The free plan has no persistent disk, so the SQLite database is re-seeded on every redeploy or restart.
+- **Some pages still use sample data:** the beneficiary and volunteer dashboards, AI verification, beneficiary registration, the emergency application form and the map.
 - **A batch can get stuck in `RELEASING`.** If the API process stops after sending a batch to PayPal and before PayPal answers, the batch stays `RELEASING` and cannot be released or synced. Check the batch in the PayPal sandbox dashboard, then run `npm run seed:reset --prefix backend` to reset the demo data. On Render the database is re-seeded on every restart.
 
 ## Demo script (under 3 minutes)
