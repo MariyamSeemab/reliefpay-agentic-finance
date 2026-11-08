@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
   const [error, setError] = useState('');
   const [demoUsers] = useState([
     { email: 'alok.v@reliefpay.org', role: 'Admin', color: 'from-purple-600 to-purple-700' },
@@ -135,10 +136,22 @@ export default function LoginPage() {
                   <input type="checkbox" className="rounded border-slate-300" disabled={isLoading} />
                   <span className="text-slate-600">Remember me</span>
                 </label>
-                <button type="button" className="text-[#087E83] hover:text-[#123B4A] font-medium">
+                <button type="button" onClick={() => setShowForgot((s) => !s)} aria-expanded={showForgot} className="text-[#087E83] hover:text-[#123B4A] font-medium">
                   Forgot password?
                 </button>
               </div>
+              {showForgot && (
+                <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3" role="status">
+                  Demo accounts all use the password <code className="font-semibold">password123</code>. For your own account,{' '}
+                  <a
+                    href={`mailto:dineshrajdhanapathy@gmail.com?subject=${encodeURIComponent('ReliefPay password reset')}`}
+                    className="text-[#087E83] font-semibold hover:underline"
+                  >
+                    email support
+                  </a>{' '}
+                  and we will reset it.
+                </div>
+              )}
 
               {/* Submit Button */}
               <button

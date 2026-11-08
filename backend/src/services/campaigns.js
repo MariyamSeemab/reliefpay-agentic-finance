@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 // Shared campaign helpers (FEAT-002 payouts reuse campaignAvailableCents).
 
 export const RESERVED_ITEM_STATUSES = ['PENDING', 'UNCLAIMED', 'ONHOLD'];
@@ -47,6 +49,45 @@ export function mapCampaign(db, row) {
 
 export function listCampaigns(db) {
   return db.prepare('SELECT * FROM campaigns ORDER BY id').all().map((r) => mapCampaign(db, r));
+}
+
+function cleanText(value, max) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+// ADMIN creates a new ACTIVE campaign with nothing raised yet.
+export function createCampaign(db, { title, disasterType, location, targetAmount, description, currency }) {
+  const cleanTitle = cleanText(title, 120);
+  if (cleanTitle.length < 3) {
+    const err = new Error('Title must be at least 3 characters');
+    err.code = 'INVALID_CAMPAIGN';
+    throw err;
+  }
+  const amount = Number(targetAmount);
+  if (!Number.isFinite(amount) || amount < 1 || amount > 1_000_000 || Math.round(amount * 100) !== amount * 100) {
+    const err = new Error('Target must be between 1 and 1,000,000 USD with at most 2 decimals');
+    err.code = 'INVALID_CAMPAIGN';
+    throw err;
+  }
+  const id = `cmp-${crypto.randomUUID().slice(0, 8)}`;
+  const today = new Date();
+  const end = new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000);
+  db.prepare(
+    `INSERT INTO campaigns (id, title, disaster_type, location, lat, lng, target_cents, raised_cents, disbursed_cents,
+                            status, beneficiaries_count, start_date, end_date, description, currency)
+     VALUES (?, ?, ?, ?, NULL, NULL, ?, 0, 0, 'ACTIVE', 0, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    cleanTitle,
+    cleanText(disasterType, 60) || 'Relief',
+    cleanText(location, 120),
+    Math.round(amount * 100),
+    today.toISOString().slice(0, 10),
+    end.toISOString().slice(0, 10),
+    cleanText(description, 1000),
+    currency,
+  );
+  return getCampaign(db, id);
 }
 
 export function getCampaign(db, id) {

@@ -9,6 +9,23 @@ export const CampaignDetail = ({ campaign, onClose, onCampaignUpdated }) => {
   const [donated, setDonated] = useState(null);
   const [selectedAmount, setSelectedAmount] = useState(25);
   const [customAmount, setCustomAmount] = useState('');
+  const [shareMsg, setShareMsg] = useState('');
+  const share = async () => {
+    const url = `${window.location.origin}/campaigns`;
+    const text = `${campaign.title}: help families recover with ReliefPay.`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: campaign.title, text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${text} ${url}`);
+      setShareMsg('Link copied to clipboard');
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      setShareMsg(`Share this link: ${url}`);
+    }
+    setTimeout(() => setShareMsg(''), 4000);
+  };
   const donationAmount = customAmount !== '' ? Math.round(Number(customAmount) * 100) / 100 : selectedAmount;
   const currency = campaign.currency || 'USD';
 
@@ -203,11 +220,12 @@ export const CampaignDetail = ({ campaign, onClose, onCampaignUpdated }) => {
 
       {/* Share */}
       <div className="flex gap-3">
-        <button className="flex-1 border border-slate-300 hover:bg-slate-50 text-slate-900 font-bold py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+        <button type="button" onClick={share} className="flex-1 border border-slate-300 hover:bg-slate-50 text-slate-900 font-bold py-3 rounded-lg text-sm flex items-center justify-center gap-2 transition">
           <Share2 className="w-4 h-4" />
           Share Campaign
         </button>
       </div>
+      {shareMsg && <p className="text-sm text-emerald-700 text-center" role="status">{shareMsg}</p>}
     </div>
   );
 };

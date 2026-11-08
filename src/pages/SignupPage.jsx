@@ -12,6 +12,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('BENEFICIARY');
   const [showPassword, setShowPassword] = useState(false);
+  const [policy, setPolicy] = useState(null);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -247,10 +248,23 @@ export default function SignupPage() {
                 disabled={isLoading}
               />
               <span className="text-xs text-slate-600 leading-relaxed">
-                I agree to the <button type="button" className="text-[#087E83] hover:underline font-semibold">Terms of Service</button> and{' '}
-                <button type="button" className="text-[#087E83] hover:underline font-semibold">Privacy Policy</button>
+                I agree to the <button type="button" onClick={(e) => { e.preventDefault(); setPolicy('terms'); }} className="text-[#087E83] hover:underline font-semibold">Terms of Service</button> and{' '}
+                <button type="button" onClick={(e) => { e.preventDefault(); setPolicy('privacy'); }} className="text-[#087E83] hover:underline font-semibold">Privacy Policy</button>
               </span>
             </label>
+            {policy && (
+              <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2" role="dialog" aria-label={policy === 'terms' ? 'Terms of Service' : 'Privacy Policy'}>
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-slate-900">{policy === 'terms' ? 'Terms of Service' : 'Privacy Policy'}</p>
+                  <button type="button" onClick={() => setPolicy(null)} className="text-slate-500 hover:text-slate-900 font-semibold">Close</button>
+                </div>
+                {policy === 'terms' ? (
+                  <p>ReliefPay is a hackathon demo. All payments run in the PayPal sandbox with test money; no real money is charged or paid out. Demo data can be reset at any time. The code is MIT licensed.</p>
+                ) : (
+                  <p>We store your name, email, role and a hashed password to sign you in, plus an audit log of actions you take. Nothing is sold or shared. PayPal handles payment details in its own sandbox popup; ReliefPay never sees card or PayPal login data. Demo data is reset regularly.</p>
+                )}
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
