@@ -226,7 +226,7 @@ All money-moving calls go to the PayPal sandbox. Order capture (needs buyer appr
 - **AG Studio watermark** shows without `AG_STUDIO_LICENSE`.
 - **AG Studio assistant needs Bedrock.** Each assistant turn sends about 5k to 7k input tokens, which does not fit Groq's free tier (8,000 tokens per minute), so it is off unless `AG_STUDIO_AI=on` with `AG_STUDIO_AI_PROVIDER=bedrock`. An answer takes about 40 to 90 seconds. Opening it in View mode docks it on the right and narrows the report. On Bedrock, image and file attachments and reasoning output are not forwarded, and a JSON reply format is asked for in the system prompt because Nova 2 Lite has no structured outputs on Converse.
 - **Demo data resets on Render.** The free plan has no persistent disk, so the SQLite database is re-seeded on every redeploy or restart.
-- **Some pages still use sample data:** the beneficiary and volunteer dashboards, AI verification, beneficiary registration, the emergency application form and the map.
+- **Some pages still use sample data:** the beneficiary dashboard, AI verification, beneficiary registration, the emergency application form and the map. The volunteer field tasks are demo data too, but Start Task, evidence upload (images or PDF), field notes, Contact, Mark Complete and View Details all work; progress is saved in the browser only and files are not sent to a server.
 - **A batch can get stuck in `RELEASING`.** If the API process stops after sending a batch to PayPal and before PayPal answers, the batch stays `RELEASING` and cannot be released or synced. Check the batch in the PayPal sandbox dashboard, then run `npm run seed:reset --prefix backend` to reset the demo data. On Render the database is re-seeded on every restart.
 
 ## License

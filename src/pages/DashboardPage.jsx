@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { AdminDashboard } from '../components/admin/AdminDashboard';
 import { BeneficiaryDashboard } from '../components/dashboard/BeneficiaryDashboard';
 import { DonorDashboard } from '../components/dashboard/DonorDashboard';
-import { VolunteerDashboard } from '../components/dashboard/VolunteerDashboard';
+import { VolunteerDashboard, VolunteerEvidenceUpload } from '../components/dashboard/VolunteerDashboard';
 import { AuditorDashboard } from '../components/dashboard/AuditorDashboard';
 import { Heart, LogOut, Settings, User, Menu, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
@@ -445,14 +445,7 @@ export default function DashboardPage() {
             {activeSection === 'evidence' && currentUser?.role === 'VOLUNTEER' && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-bold text-slate-900">Upload Evidence</h2>
-                <div className="bg-white rounded-2xl border border-slate-200 p-8">
-                  <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center">
-                    <p className="text-slate-600 mb-4">📸 Drag and drop photos or click to upload</p>
-                    <button className="bg-[#087E83] hover:bg-[#123B4A] text-white font-bold px-6 py-2 rounded-lg transition">
-                      Choose Files
-                    </button>
-                  </div>
-                </div>
+                <VolunteerEvidenceUpload currentUser={currentUser} />
               </div>
             )}
 
