@@ -5,9 +5,11 @@ import { ProgressChart } from '../charts/ProgressChart';
 import { SimpleBarChart } from '../charts/SimpleBarChart';
 import { PieChart } from '../charts/PieChart';
 import { formatMoney } from '../../lib/money';
+import { apiFetch } from '../../lib/api';
 
-export const AdminDashboard = ({ campaigns, applications, transactions, setActiveTab }) => {
+export const AdminDashboard = ({ campaigns, applications, transactions, setActiveTab, canLaunch = false, onCampaignsChanged }) => {
   const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [launchMsg, setLaunchMsg] = useState({ text: '', error: false });
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -54,9 +56,26 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
     { label: 'Pending', value: Math.max(totalRaised - totalDisbursed, 0), color: '#f59e0b' },
   ];
 
-  const handleLaunchCampaign = (newCampaign) => {
-    setShowCampaignModal(false);
-    alert(`Campaign "${newCampaign.title}" launched successfully!`);
+  // Creates the campaign through the API (ADMIN only), then reloads the dashboard data.
+  const handleLaunchCampaign = async (newCampaign) => {
+    setLaunchMsg({ text: '', error: false });
+    try {
+      const { campaign } = await apiFetch('/campaigns', {
+        method: 'POST',
+        body: {
+          title: newCampaign.title,
+          disasterType: newCampaign.disasterType,
+          location: newCampaign.location,
+          targetAmount: newCampaign.targetAmount,
+          description: newCampaign.description,
+        },
+      });
+      setShowCampaignModal(false);
+      setLaunchMsg({ text: `Campaign "${campaign.title}" launched. It now appears on the campaigns page.`, error: false });
+      onCampaignsChanged?.();
+    } catch (err) {
+      setLaunchMsg({ text: err.message || 'Could not launch the campaign', error: true });
+    }
   };
 
   return (
@@ -67,14 +86,20 @@ export const AdminDashboard = ({ campaigns, applications, transactions, setActiv
           <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
           <p className="text-slate-600 mt-1">Campaign and application management</p>
         </div>
+        {canLaunch && (
         <button
-          onClick={() => setShowCampaignModal(true)}
+          type="button"
+          onClick={() => { setLaunchMsg({ text: '', error: false }); setShowCampaignModal(true); }}
           className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:shadow-lg text-white font-bold py-3 px-6 rounded-lg transition flex items-center gap-2"
         >
           <Plus className="w-5 h-5" />
           Launch New Campaign
         </button>
+        )}
       </div>
+      {launchMsg.text && (
+        <p className={`text-sm rounded-lg px-4 py-3 border ${launchMsg.error ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-800'}`} role="status">{launchMsg.text}</p>
+      )}
 
       {/* Campaign Launch Modal */}
       <LaunchCampaignModal

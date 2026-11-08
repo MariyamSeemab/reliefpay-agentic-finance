@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { exportToCSV } from '../../utils/exportCsv';
+
+const SUPPORT_EMAIL = 'dineshrajdhanapathy@gmail.com';
 import { FileText, Clock, CheckCircle, AlertCircle, Download, MessageCircle } from 'lucide-react';
 import { INITIAL_APPLICATIONS } from '../../data/mockData';
 import { formatMoney } from '../../lib/money';
 
 export const BeneficiaryDashboard = ({ currentUser }) => {
+  const navigate = useNavigate();
   const [applications] = useState(INITIAL_APPLICATIONS);
 
   const userApplications = applications.filter(app => app.beneficiaryName === currentUser?.name);
@@ -66,7 +71,7 @@ export const BeneficiaryDashboard = ({ currentUser }) => {
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
             <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-600 mb-4">No applications submitted yet</p>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">
+            <button type="button" onClick={() => navigate('/beneficiary/application/new')} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">
               Submit New Application
             </button>
           </div>
@@ -154,11 +159,11 @@ export const BeneficiaryDashboard = ({ currentUser }) => {
 
                 {/* Actions */}
                 <div className="px-6 py-4 flex gap-3">
-                  <button className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+                  <button type="button" onClick={() => { window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Question about application ${app.id}`)}&body=${encodeURIComponent(`Hello,\n\nI have a question about my relief application ${app.id} (status: ${app.status}).\n\n`)}`; }} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition">
                     <MessageCircle className="w-4 h-4" />
                     Contact Reviewer
                   </button>
-                  <button className="flex-1 border border-slate-300 text-slate-900 hover:bg-slate-50 font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition">
+                  <button type="button" onClick={() => exportToCSV([{ applicationId: app.id, beneficiary: app.beneficiaryName, area: app.area, disasterType: app.disasterType, householdMembers: app.householdMembers, requestedUSD: app.requestedAmount, approvedUSD: app.approvedAmount ?? '', priority: app.priority, status: app.status, submittedAt: app.submittedAt }], `${app.id}-details.csv`)} className="flex-1 border border-slate-300 text-slate-900 hover:bg-slate-50 font-semibold py-2 rounded-lg text-sm flex items-center justify-center gap-2 transition">
                     <Download className="w-4 h-4" />
                     Download Details
                   </button>

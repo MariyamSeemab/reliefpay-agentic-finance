@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Heart, TrendingUp, Award, Calendar, BarChart3, Download } from 'lucide-react';
 import { INITIAL_DONATIONS } from '../../data/mockData';
 import { apiFetch } from '../../lib/api';
@@ -7,6 +8,7 @@ import { downloadTaxReceipts } from '../../lib/taxReceipt';
 
 export const DonorDashboard = ({ currentUser }) => {
   // The API has no per-donor donation history yet, so the list stays demo data (USD).
+  const navigate = useNavigate();
   const [donations] = useState(INITIAL_DONATIONS);
   const [campaigns, setCampaigns] = useState([]);
   const [downloading, setDownloading] = useState(null);
@@ -189,7 +191,7 @@ export const DonorDashboard = ({ currentUser }) => {
                   </div>
                 </div>
 
-                <button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-sm transition">
+                <button type="button" onClick={() => navigate('/campaigns')} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 rounded-lg text-sm transition">
                   Support Campaign
                 </button>
               </div>

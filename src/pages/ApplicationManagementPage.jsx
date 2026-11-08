@@ -10,6 +10,7 @@ export default function ApplicationManagementPage() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [applications, setApplications] = useState([]);
+  const [openDoc, setOpenDoc] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -240,14 +241,36 @@ export default function ApplicationManagementPage() {
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
                 <h2 className="text-lg font-semibold text-slate-900 mb-4">Uploaded Documents</h2>
                 <div className="space-y-2">
-                  {selectedApp.documents.map((doc, idx) => (
-                    <div key={idx} className="p-3 bg-slate-50 rounded-lg flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-700">{doc}</span>
-                      <button className="text-emerald-600 hover:text-emerald-700 text-sm font-medium">
-                        View
-                      </button>
-                    </div>
-                  ))}
+                  {selectedApp.documents.map((doc, idx) => {
+                    const isOpen = openDoc === `${selectedApp.id}:${doc}`;
+                    const kind = /\.pdf$/i.test(doc) ? 'PDF document' : /\.(jpe?g|png|webp)$/i.test(doc) ? 'Photo' : 'File';
+                    const related = (selectedApp.aiFindings || []).filter((f) => (f.fields || []).includes('documents'));
+                    return (
+                      <div key={idx} className="p-3 bg-slate-50 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium text-slate-700">{doc}</span>
+                          <button
+                            type="button"
+                            onClick={() => setOpenDoc(isOpen ? null : `${selectedApp.id}:${doc}`)}
+                            aria-expanded={isOpen}
+                            className="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+                          >
+                            {isOpen ? 'Hide' : 'View'}
+                          </button>
+                        </div>
+                        {isOpen && (
+                          <div className="mt-3 text-xs text-slate-600 space-y-1 border-t border-slate-200 pt-3">
+                            <p><span className="font-semibold text-slate-800">Type:</span> {kind}</p>
+                            <p><span className="font-semibold text-slate-800">Application:</span> {selectedApp.id} ({selectedApp.beneficiaryName})</p>
+                            {related.map((f) => (
+                              <p key={f.id}><span className="font-semibold text-slate-800">AI check:</span> {f.title}. {f.reason}</p>
+                            ))}
+                            <p className="text-slate-500">Demo data: only the file name is stored, so there is no file to open.</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -575,10 +598,13 @@ export default function ApplicationManagementPage() {
                   </div>
 
                   <button
+                    type="button"
                     onClick={() => {
                       setSelectedApp(app);
                       setShowDetails(true);
                     }}
+                    aria-label={`Open application ${app.id}`}
+                    title={`Open application ${app.id}`}
                     className="p-2 hover:bg-emerald-50 rounded-lg text-emerald-600 transition"
                   >
                     <ChevronRight className="w-6 h-6" />

@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { AdminDashboard } from '../components/admin/AdminDashboard';
 import { BeneficiaryDashboard } from '../components/dashboard/BeneficiaryDashboard';
 import { DonorDashboard } from '../components/dashboard/DonorDashboard';
-import { VolunteerDashboard } from '../components/dashboard/VolunteerDashboard';
+import { VolunteerDashboard, VolunteerEvidenceUpload } from '../components/dashboard/VolunteerDashboard';
 import { AuditorDashboard } from '../components/dashboard/AuditorDashboard';
 import { Heart, LogOut, Settings, User, Menu, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
@@ -12,6 +12,7 @@ import { formatMoney } from '../lib/money';
 import { downloadTaxReceipts } from '../lib/taxReceipt';
 import { INITIAL_DONATIONS } from '../data/mockData';
 import { SettingsModal } from '../components/common/SettingsModal';
+import { AuditorReports } from '../components/dashboard/AuditorReports';
 
 const STAFF_ROLES = ['ADMIN', 'REVIEWER'];
 
@@ -41,6 +42,7 @@ export default function DashboardPage() {
   const [staffLoading, setStaffLoading] = useState(true);
   const [staffError, setStaffError] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const isStaff = STAFF_ROLES.includes(currentUser?.role) || !currentUser?.role;
   const isAdmin = currentUser?.role === 'ADMIN';
@@ -65,7 +67,7 @@ export default function DashboardPage() {
       .catch((err) => { if (!cancelled) setStaffError(err.message || 'Could not load dashboard data'); })
       .finally(() => { if (!cancelled) setStaffLoading(false); });
     return () => { cancelled = true; };
-  }, [isStaff, isAdmin]);
+  }, [isStaff, isAdmin, reloadKey]);
 
   const handleLogout = () => {
     logout();
@@ -73,14 +75,24 @@ export default function DashboardPage() {
   };
 
   const renderAdminDashboard = () => {
-    if (staffLoading || staffError) {
+    // Only the first load shows the placeholder; a reload after launching a
+    // campaign keeps the dashboard (and its success message) on screen.
+    if ((staffLoading && !campaigns.length) || staffError) {
       return (
         <div className={`bg-white rounded-2xl border border-slate-200 p-8 text-center ${staffError ? 'text-red-700' : 'text-slate-600'}`}>
           {staffError || 'Loading dashboard data…'}
         </div>
       );
     }
-    return <AdminDashboard campaigns={campaigns} applications={applications} transactions={transactions} />;
+    return (
+      <AdminDashboard
+        campaigns={campaigns}
+        applications={applications}
+        transactions={transactions}
+        canLaunch={isAdmin}
+        onCampaignsChanged={() => setReloadKey((k) => k + 1)}
+      />
+    );
   };
 
   const renderDashboard = () => {
@@ -128,6 +140,8 @@ export default function DashboardPage() {
                 {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
               </button>
               <button
+                type="button"
+                aria-label="ReliefPay home"
                 onClick={() => navigate('/')}
                 className="flex items-center gap-2"
               >
@@ -155,7 +169,7 @@ export default function DashboardPage() {
                 <Settings className="w-5 h-5 text-slate-600" />
               </button>
 
-              <button
+              <button type="button" aria-label="Sign out" title="Sign out"
                 onClick={handleLogout}
                 className="p-2 hover:bg-red-50 rounded-lg text-red-600"
               >
@@ -445,14 +459,7 @@ export default function DashboardPage() {
             {activeSection === 'evidence' && currentUser?.role === 'VOLUNTEER' && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-bold text-slate-900">Upload Evidence</h2>
-                <div className="bg-white rounded-2xl border border-slate-200 p-8">
-                  <div className="border-2 border-dashed border-slate-300 rounded-lg p-12 text-center">
-                    <p className="text-slate-600 mb-4">📸 Drag and drop photos or click to upload</p>
-                    <button className="bg-[#087E83] hover:bg-[#123B4A] text-white font-bold px-6 py-2 rounded-lg transition">
-                      Choose Files
-                    </button>
-                  </div>
-                </div>
+                <VolunteerEvidenceUpload currentUser={currentUser} />
               </div>
             )}
 
@@ -468,17 +475,7 @@ export default function DashboardPage() {
             {activeSection === 'reports' && currentUser?.role === 'AUDITOR' && (
               <div className="space-y-6">
                 <h2 className="text-3xl font-bold text-slate-900">Export Reports</h2>
-                <div className="bg-white rounded-2xl border border-slate-200 p-8 space-y-4">
-                  <button className="w-full bg-gradient-to-r from-slate-900 to-slate-800 hover:shadow-lg text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
-                    📊 Compliance Report
-                  </button>
-                  <button className="w-full bg-gradient-to-r from-slate-900 to-slate-800 hover:shadow-lg text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
-                    💰 Financial Summary
-                  </button>
-                  <button className="w-full bg-gradient-to-r from-slate-900 to-slate-800 hover:shadow-lg text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2">
-                    📈 Performance Metrics
-                  </button>
-                </div>
+                <AuditorReports />
               </div>
             )}
           </div>

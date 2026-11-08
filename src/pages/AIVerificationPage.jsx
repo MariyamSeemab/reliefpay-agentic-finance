@@ -24,6 +24,29 @@ export default function AIVerificationPage() {
     }
   };
 
+  // Reviewer decisions on the demo applications, kept on this page.
+  const [decisions, setDecisions] = useState({});
+  const findingIds = (app) => app.aiFindings.map((f) => f.id);
+  const completeReview = (app) => {
+    setReviewedFindings((prev) => [...new Set([...prev, ...findingIds(app)])]);
+    setFlaggedFindings((prev) => prev.filter((id) => !findingIds(app).includes(id)));
+    setDecisions((prev) => ({ ...prev, [app.id]: { type: 'REVIEWED', at: new Date().toISOString() } }));
+  };
+  const escalate = (app) => {
+    setFlaggedFindings((prev) => [...new Set([...prev, ...findingIds(app)])]);
+    setDecisions((prev) => ({ ...prev, [app.id]: { type: 'ESCALATED', at: new Date().toISOString() } }));
+  };
+  const undo = (app) => {
+    const ids = findingIds(app);
+    setReviewedFindings((prev) => prev.filter((id) => !ids.includes(id)));
+    setFlaggedFindings((prev) => prev.filter((id) => !ids.includes(id)));
+    setDecisions((prev) => {
+      const next = { ...prev };
+      delete next[app.id];
+      return next;
+    });
+  };
+
   const handleMarkIrrelevant = (findingId) => {
     if (!showIrrelevant) setShowIrrelevant(true);
     handleMarkAsReviewed(findingId);
@@ -255,24 +278,35 @@ export default function AIVerificationPage() {
               <h3 className="font-semibold text-slate-900 mb-4">Reviewer Actions</h3>
               <div className="grid grid-cols-2 gap-4">
                 <button
-                  onClick={() => {
-                    alert('In production, this would mark the AI findings as reviewed and update the application status.');
-                  }}
+                  type="button"
+                  onClick={() => completeReview(selectedApp)}
                   className="px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium text-sm"
                 >
                   <CheckCircle className="w-4 h-4 inline mr-2" />
                   Review Complete
                 </button>
                 <button
-                  onClick={() => {
-                    alert('In production, this would escalate the application for further investigation.');
-                  }}
+                  type="button"
+                  onClick={() => escalate(selectedApp)}
                   className="px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition font-medium text-sm"
                 >
                   <AlertTriangle className="w-4 h-4 inline mr-2" />
                   Escalate for Investigation
                 </button>
               </div>
+              {decisions[selectedApp.id] && (
+                <div
+                  role="status"
+                  className={`mt-4 rounded-lg border px-4 py-3 text-sm ${decisions[selectedApp.id].type === 'REVIEWED' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}
+                >
+                  {decisions[selectedApp.id].type === 'REVIEWED'
+                    ? `Review complete for ${selectedApp.id}: all ${selectedApp.aiFindings.length} AI findings marked as reviewed.`
+                    : `${selectedApp.id} escalated for investigation: all AI findings flagged.`}
+                  {' '}
+                  <span className="text-xs opacity-80">({new Date(decisions[selectedApp.id].at).toLocaleString()})</span>
+                  <button type="button" onClick={() => undo(selectedApp)} className="ml-3 underline text-xs">Undo</button>
+                </div>
+              )}
             </div>
 
             {/* Summary Statistics */}

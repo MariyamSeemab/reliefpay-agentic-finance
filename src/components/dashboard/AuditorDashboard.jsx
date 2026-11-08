@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Shield, TrendingUp, AlertTriangle, CheckCircle2, Download, Filter } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { formatMoney } from '../../lib/money';
+import { exportToCSV } from '../../utils/exportCsv';
 
 const MAX_FILTERS = 8;
 
@@ -12,6 +13,7 @@ export const AuditorDashboard = ({ currentUser }) => {
   const [transactions, setTransactions] = useState([]);
   const [currency, setCurrency] = useState('USD');
   const [filterType, setFilterType] = useState('ALL');
+  const [showFilters, setShowFilters] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -97,18 +99,19 @@ export const AuditorDashboard = ({ currentUser }) => {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-slate-900">Audit Trail</h2>
           <div className="flex gap-2">
-            <button className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg text-sm transition">
+            <button type="button" onClick={() => setShowFilters((s) => !s)} aria-pressed={showFilters} className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold rounded-lg text-sm transition">
               <Filter className="w-4 h-4" />
               Filter
             </button>
-            <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-sm transition">
+            <button type="button" onClick={() => exportToCSV(filteredLogs.map((l) => ({ id: l.id, timestamp: l.timestamp, actor: l.actor, action: l.action, target: l.target, status: l.status })), `reliefpay-audit-${filterType.toLowerCase()}.csv`)} disabled={!filteredLogs.length} className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-lg text-sm transition disabled:opacity-50">
               <Download className="w-4 h-4" />
               Export
             </button>
           </div>
         </div>
 
-        {/* Filter Tabs */}
+        {/* Filter Tabs (the Filter button shows or hides them) */}
+        {showFilters && (
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {filterTypes.map((type) => (
             <button
@@ -124,6 +127,7 @@ export const AuditorDashboard = ({ currentUser }) => {
             </button>
           ))}
         </div>
+        )}
 
         {/* Audit Log Table */}
         <div className="overflow-x-auto">

@@ -10,6 +10,8 @@ export const AuthModal = ({ isOpen, onClose, currentUser, setCurrentUser }) => {
       <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
         
         <button 
+          type="button"
+          aria-label="Close"
           onClick={onClose}
           className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100"
         >
