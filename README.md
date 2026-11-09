@@ -2,6 +2,36 @@
 
 ReliefPay is a disaster-relief platform where donors fund campaigns through PayPal Checkout and administrators pay approved beneficiaries through PayPal Payouts. A Groq-powered AI agent reads the live case and funding data and drafts payout batches, but only a human admin with a server-side authorization code can release money.
 
+## Links
+
+| | |
+|---|---|
+| **Live demo** | https://reliefpay.onrender.com (free Render instance: the first load after idle takes about a minute) |
+| **Source code** | https://github.com/MariyamSeemab/reliefpay-agentic-finance |
+| **Postman API collection** | https://www.postman.com/orbital-module-cosmonaut-84618325-s-team/workspace/reliefpay-paypal-ai-hackathon |
+| **API reference** | [docs/API.md](docs/API.md) |
+| **End-to-end test report** | [docs/E2E_TEST_REPORT.md](docs/E2E_TEST_REPORT.md) |
+| **Demo logins** | See [Demo accounts](#demo-accounts) (password `password123`) |
+
+All payments use the PayPal **sandbox**: no real money moves.
+
+## Architecture
+
+![ReliefPay architecture](docs/architecture/reliefpay-architecture.png)
+
+The editable source is [docs/architecture/reliefpay-architecture.drawio](docs/architecture/reliefpay-architecture.drawio); open it in [diagrams.net](https://app.diagrams.net/) (File > Open from > Device). Every API route is listed in [docs/API.md](docs/API.md).
+
+### Money flow
+
+1. A donor clicks the PayPal button. The API creates an order (`POST /api/donations/orders`), the donor approves it in the PayPal popup, and the API captures it (`POST /api/donations/orders/:orderId/capture`). The captured amount is added to the campaign. A split donation uses `POST /api/donations/split-orders` and `POST /api/donations/split-orders/:orderId/capture`; each captured purchase unit is added to its own campaign.
+   An admin refund (`POST /api/donations/:id/refund`) or a refund/reversal webhook subtracts the refunded amount from the campaign once.
+2. Reviewers and admins approve applications with an approved amount.
+3. An admin, or the AI agent on the admin's behalf, drafts a payout batch of approved applications. The API checks that the campaign has enough unreserved funds.
+4. The admin releases the batch in the Payment Agent page with the authorization code. The API calls PayPal Payouts and records the PayPal batch id.
+5. PayPal webhooks (or a manual sync) update batch and item status, and the audit log records each step.
+
+All money is stored as integer cents in USD.
+
 ## Features
 
 - **Donations with PayPal Checkout.** Logged-in users donate to a campaign with the PayPal JS SDK Buttons. The API creates and captures a PayPal Orders v2 order, and the campaign progress bar updates from the captured amount.
@@ -54,22 +84,6 @@ Captured with Playwright against a local run with real PayPal sandbox, Groq and 
 | ![Tax receipt PDF](docs/screenshots/25-tax-receipt-pdf.png) | ![Settings panel](docs/screenshots/22-settings-panel.png) |
 | **Login with demo accounts** | **Application management** |
 | ![Login](docs/screenshots/03-login-demo-accounts.png) | ![Applications](docs/screenshots/09-application-management.png) |
-
-## Architecture
-
-![ReliefPay architecture](docs/architecture/reliefpay-architecture.png)
-
-The editable source is [docs/architecture/reliefpay-architecture.drawio](docs/architecture/reliefpay-architecture.drawio); open it in [diagrams.net](https://app.diagrams.net/) (File > Open from > Device). Every API route is listed in [docs/API.md](docs/API.md).
-Money flow:
-
-1. A donor clicks the PayPal button. The API creates an order (`POST /api/donations/orders`), the donor approves it in the PayPal popup, and the API captures it (`POST /api/donations/orders/:orderId/capture`). The captured amount is added to the campaign. A split donation uses `POST /api/donations/split-orders` and `POST /api/donations/split-orders/:orderId/capture`; each captured purchase unit is added to its own campaign.
-   An admin refund (`POST /api/donations/:id/refund`) or a refund/reversal webhook subtracts the refunded amount from the campaign once.
-2. Reviewers and admins approve applications with an approved amount.
-3. An admin, or the AI agent on the admin's behalf, drafts a payout batch of approved applications. The API checks that the campaign has enough unreserved funds.
-4. The admin releases the batch in the Payment Agent page with the authorization code. The API calls PayPal Payouts and records the PayPal batch id.
-5. PayPal webhooks (or a manual sync) update batch and item status, and the audit log records each step.
-
-All money is stored as integer cents in USD.
 
 ## Run it locally (for judges)
 
