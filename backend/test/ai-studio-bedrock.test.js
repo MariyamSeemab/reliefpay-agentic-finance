@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 import request from 'supertest';
 import { readConfig } from '../src/config.js';
 import { loginAs, makeTestContext } from './helpers.js';
+import { inlineRefs } from '../src/ai/bedrockStudio.js';
 
 const ADMIN = 'alok.v@reliefpay.org';
 const AUDITOR = 'elena@auditcore.org';
@@ -162,7 +163,30 @@ describe('AG Studio assistant via Bedrock', () => {
     assert.deepEqual(input.additionalModelRequestFields, { reasoningConfig: { type: 'enabled', maxReasoningEffort: 'low' } });
   });
 
-  test('tool schema $refs are inlined one level deep; deeper and recursive refs become {}', async () => {
+  test('deeper refs keep their JSON type and string enums instead of becoming {}', () => {
+    const schema = {
+      type: 'object',
+      properties: { expr: { $ref: '#/$defs/Expr' } },
+      $defs: {
+        Expr: {
+          anyOf: [
+            { type: 'object', properties: { field: { $ref: '#/$defs/FieldId' }, inputs: { type: 'array', items: { $ref: '#/$defs/Expr' } } } },
+          ],
+        },
+        FieldId: { anyOf: [{ type: 'string', enum: ['campaigns.id', 'campaigns.title'] }, { type: 'string', enum: ['donations.amount'] }] },
+      },
+    };
+    const out = inlineRefs(schema);
+    const inner = out.properties.expr.anyOf[0].properties;
+    assert.deepEqual(inner.field, { type: 'string', enum: ['campaigns.id', 'campaigns.title', 'donations.amount'] });
+    assert.equal(inner.inputs.items.type, 'object');
+    assert.match(inner.inputs.items.description, /Expr/);
+    const empty = [];
+    (function walk(n) { if (Array.isArray(n)) return n.forEach(walk); if (!n || typeof n !== 'object') return; if (!Object.keys(n).length) empty.push(n); Object.values(n).forEach(walk); })(out);
+    assert.equal(empty.length, 0, 'no typeless {} nodes');
+  });
+
+  test('tool schema $refs are inlined one level deep; deeper and recursive refs become typed stubs', async () => {
     const { ctx, bedrock, admin } = await setup();
     const parameters = {
       type: 'object',
@@ -179,7 +203,7 @@ describe('AG Studio assistant via Bedrock', () => {
       type: 'object',
       properties: {
         field: { type: 'object', properties: { id: { type: 'string', enum: ['a', 'b'] } }, required: ['id'] },
-        group: { type: 'object', properties: { inner: {} } },
+        group: { type: 'object', properties: { inner: { type: 'object', description: 'A Group object (same shape as the Group used above).' } } },
       },
       required: ['field', 'group'],
       additionalProperties: false,

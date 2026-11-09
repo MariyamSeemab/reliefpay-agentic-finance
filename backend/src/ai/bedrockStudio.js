@@ -66,10 +66,49 @@ function jsonFormatInstruction(format) {
 // AG Studio tool schemas use `$defs` + `$ref` (some recursive). With them, Nova
 // 2 Lite answered in plain text instead of calling tools, even with toolChoice
 // set (seen live); with the refs inlined it calls tools. Refs are inlined one
-// level deep (two levels made the query tool schema ~180 kB); a deeper ref
-// becomes {} (any value) and AG Studio's own validation reports bad arguments
-// back to the model as a tool result.
+// level deep (two levels made the query tool schema ~180 kB, full inlining
+// ~330 kB). A deeper ref used to become {} (any value): Nova then sent strings
+// where AG Studio wanted objects, and its data agent showed "Could not run the
+// query: Expected an object" several times per question (seen live). A deeper
+// ref now becomes a small typed stub that keeps the JSON type and, for string
+// fields, the allowed values (the dataset's field ids), so the shape is right.
 const REF_DEPTH = 1;
+const MAX_STUB_ENUM = 60;
+
+function refName(ref) {
+  return ref.replace(/^#\/\$defs\//, '');
+}
+
+// Collects the JSON types (and string enum values) a definition can take,
+// following refs without recursing forever.
+function typedStub(def, defs, name) {
+  const types = new Set();
+  const values = [];
+  const visit = (node, seen) => {
+    if (!node || typeof node !== 'object') return;
+    if (typeof node.$ref === 'string') {
+      const n = refName(node.$ref);
+      if (seen.has(n)) {
+        types.add('object');
+        return;
+      }
+      visit(defs[n], new Set([...seen, n]));
+      return;
+    }
+    if (node.type) [].concat(node.type).forEach((t) => types.add(t));
+    else if (node.properties || node.required) types.add('object');
+    if (Array.isArray(node.enum)) values.push(...node.enum);
+    if (node.const !== undefined) values.push(node.const);
+    for (const key of ['anyOf', 'oneOf', 'allOf']) (node[key] || []).forEach((x) => visit(x, seen));
+  };
+  visit(def, new Set([name]));
+  const list = [...types];
+  const stub = { type: list.length === 1 ? list[0] : list.length ? list : 'object' };
+  const unique = [...new Set(values)];
+  if (unique.length && unique.length <= MAX_STUB_ENUM && list.length === 1 && list[0] === 'string') stub.enum = unique;
+  if (stub.type === 'object') stub.description = `A ${name} object (same shape as the ${name} used above).`;
+  return stub;
+}
 
 export function inlineRefs(schema) {
   if (!schema || typeof schema !== 'object') return schema;
@@ -78,8 +117,10 @@ export function inlineRefs(schema) {
     if (Array.isArray(node)) return node.map((v) => walk(v, depth));
     if (!node || typeof node !== 'object') return node;
     if (typeof node.$ref === 'string') {
-      const def = defs[node.$ref.replace(/^#\/\$defs\//, '')];
-      return def && depth < REF_DEPTH ? walk(def, depth + 1) : {};
+      const name = refName(node.$ref);
+      const def = defs[name];
+      if (!def) return { type: 'object' };
+      return depth < REF_DEPTH ? walk(def, depth + 1) : typedStub(def, defs, name);
     }
     const out = {};
     for (const [key, value] of Object.entries(node)) {
