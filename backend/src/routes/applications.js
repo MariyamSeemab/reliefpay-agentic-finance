@@ -64,6 +64,16 @@ export function applicationsRouter({ db, config }) {
     res.json({ applications });
   });
 
+  // A beneficiary sees only their own applications, so the dashboard shows the
+  // reviewer's latest decision. Applications are linked to users by name.
+  router.get('/applications/mine', auth, requireRole('BENEFICIARY'), (req, res) => {
+    const applications = db
+      .prepare('SELECT * FROM applications WHERE beneficiary_name = ? COLLATE NOCASE ORDER BY submitted_at DESC, id')
+      .all(req.user.name)
+      .map((r) => mapApplication(r, currency));
+    res.json({ applications });
+  });
+
   router.patch('/applications/:id/status', auth, requireRole('ADMIN', 'REVIEWER'), (req, res) => {
     const { status, remarks, approvedAmount } = req.body ?? {};
     if (!REVIEW_STATUSES.includes(status)) {

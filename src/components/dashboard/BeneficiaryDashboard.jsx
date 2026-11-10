@@ -1,17 +1,37 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { exportToCSV } from '../../utils/exportCsv';
 
 const SUPPORT_EMAIL = 'dineshrajdhanapathy@gmail.com';
-import { FileText, Clock, CheckCircle, AlertCircle, Download, MessageCircle } from 'lucide-react';
-import { INITIAL_APPLICATIONS } from '../../data/mockData';
+import { FileText, Clock, CheckCircle, AlertCircle, Download, MessageCircle, RefreshCw } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 import { formatMoney } from '../../lib/money';
 
-export const BeneficiaryDashboard = ({ currentUser }) => {
+export const BeneficiaryDashboard = () => {
   const navigate = useNavigate();
-  const [applications] = useState(INITIAL_APPLICATIONS);
+  const [userApplications, setUserApplications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const userApplications = applications.filter(app => app.beneficiaryName === currentUser?.name);
+  // Load from the API so a reviewer's decision shows up here. Reload when the
+  // tab regains focus, so switching back after a review shows the new status.
+  const load = useCallback(async () => {
+    try {
+      const data = await apiFetch('/applications/mine');
+      setUserApplications(data?.applications ?? []);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Could not load your applications.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    window.addEventListener('focus', load);
+    return () => window.removeEventListener('focus', load);
+  }, [load]);
   const approvedAmount = userApplications.reduce((sum, app) => sum + (app.approvedAmount || 0), 0);
   const totalRequested = userApplications.reduce((sum, app) => sum + app.requestedAmount, 0);
 
@@ -20,6 +40,7 @@ export const BeneficiaryDashboard = ({ currentUser }) => {
       case 'APPROVED': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'UNDER_REVIEW': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'REJECTED': return 'bg-red-50 text-red-700 border-red-200';
+      case 'DOCUMENT_REQUESTED': return 'bg-amber-50 text-amber-700 border-amber-200';
       default: return 'bg-slate-50 text-slate-700 border-slate-200';
     }
   };
@@ -65,9 +86,21 @@ export const BeneficiaryDashboard = ({ currentUser }) => {
 
       {/* Applications List */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">Your Applications</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Your Applications</h2>
+          <button type="button" onClick={load} className="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700">
+            <RefreshCw className="w-4 h-4" />
+            Refresh
+          </button>
+        </div>
 
-        {userApplications.length === 0 ? (
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">{error}</div>
+        )}
+
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500">Loading your applications...</div>
+        ) : userApplications.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center">
             <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-600 mb-4">No applications submitted yet</p>
@@ -88,7 +121,7 @@ export const BeneficiaryDashboard = ({ currentUser }) => {
                     </div>
                     <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${getStatusColor(app.status)}`}>
                       {getStatusIcon(app.status)}
-                      <span className="font-semibold text-sm">{app.status.replace('_', ' ')}</span>
+                      <span className="font-semibold text-sm">{app.status.replaceAll('_', ' ')}</span>
                     </div>
                   </div>
 
