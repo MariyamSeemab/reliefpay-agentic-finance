@@ -24,7 +24,7 @@ const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
 // Legacy components (kept for compatibility)
 import { ReliefMap } from './components/map/ReliefMap';
 import { BeneficiaryWizard } from './components/beneficiary/BeneficiaryWizard';
-import { INITIAL_CAMPAIGNS, INITIAL_APPLICATIONS } from './data/mockData';
+import { INITIAL_CAMPAIGNS } from './data/mockData';
 
 export default function App() {
   return (
@@ -51,7 +51,7 @@ export default function App() {
           <Route
             path="/beneficiary/registration"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRoles={['BENEFICIARY']}>
                 <BeneficiaryRegistrationPage />
               </ProtectedRoute>
             }
@@ -118,7 +118,7 @@ export default function App() {
             path="/map"
             element={
               <ProtectedRoute>
-                <ReliefMap campaigns={INITIAL_CAMPAIGNS} applications={INITIAL_APPLICATIONS} />
+                <ReliefMap />
               </ProtectedRoute>
             }
           />

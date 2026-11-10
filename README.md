@@ -34,7 +34,7 @@ All money is stored as integer cents in USD.
 
 ## Features
 
-- **Donations with PayPal Checkout.** Logged-in users donate to a campaign with the PayPal JS SDK Buttons. The API creates and captures a PayPal Orders v2 order, and the campaign progress bar updates from the captured amount.
+- **Donations with PayPal Checkout on JavaScript SDK v6.** Logged-in users donate to a campaign with the v6 `<paypal-button>` and a one-time payment session (`createPayPalOneTimePaymentSession`). The API creates and captures a PayPal Orders v2 order, and the campaign progress bar updates from the captured amount. If the v6 script cannot load, the page falls back to v5 Buttons so donations keep working.
 - **Admin-authorized PayPal Payouts.** Payout batches for approved applications are released with PayPal Payouts v1 only after an admin enters the payout authorization code. Status is refreshed from PayPal by webhook or by the "Refresh status from PayPal" button.
 - **Signature-verified webhooks.** `POST /api/webhooks/paypal` verifies every event with PayPal's verify-webhook-signature API before it updates donations or payouts, and ignores duplicates.
 - **Audit log.** Every state change (logins, donations, application decisions, AI chats and tool calls, payout drafts, releases, failed authorization attempts, webhook updates) is written to an audit log that auditors can read.
@@ -47,9 +47,14 @@ All money is stored as integer cents in USD.
 - **Settings panel.** The gear in the dashboard header opens Settings: profile (name, email, role, organization), notification toggles saved in this browser's localStorage, and Sign Out.
 - **Branding and support.** The ReliefPay logo appears on every page: in the landing navbar and footer, on login, signup and the dashboard header, at the top right of every inner page next to its Back button, and on the 404 and access-denied pages. A single "Contact our support team" section on the landing page has an **Email support** button that opens an email to the support team without showing the address; the navbar **Contact** link scrolls to it. The campaigns page (split donation form) has a Back button.
 - **Postman collection** in `docs/postman/` for trying the API (see [Postman collection](#postman-collection)).
+- **Beneficiary applications.** A beneficiary picks an active campaign, describes the damage, enters a PayPal email for the payout and submits. The application goes straight into the review queue, reviewers see the applicant's statement, and the beneficiary dashboard shows the latest decision.
+- **Beneficiary registration.** Beneficiaries save a profile (contact, address, household, emergency contact) and can update it later.
+- **AI verification review.** Reviewers mark AI findings as reviewed or flagged and record a decision. The work is saved and audited, and it never approves or rejects on its own.
+- **Volunteer field tasks.** Volunteers start tasks, add field notes and evidence, and mark them complete. The server refuses to complete a task without evidence, and each step is audited.
+- **Relief map.** Campaign hubs for everyone; staff see every beneficiary request, a beneficiary sees only their own, and donors and volunteers see campaigns only.
 - **Role-based access for 6 roles:** Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor.
 
-Wired to the API: login/signup, campaigns, single and split donations, the admin dashboard totals and charts, AI Command Centre, Payment Agent, the analytics page and refunds, application management, and the auditor dashboard and audit log. The donor dashboard mixes API data with sample data. Still showing mock data: the beneficiary and volunteer dashboards, AI verification, beneficiary registration and emergency application, and the map.
+Every role's pages read and write the API: login/signup, campaigns, single and split donations, the admin dashboard, AI Command Centre, Payment Agent, analytics and refunds, application management, AI verification, the map, the beneficiary dashboard, registration and application form, the volunteer task board, and the auditor dashboard and audit log. The donor dashboard still mixes API data with sample donation history.
 
 ## Documentation
 
@@ -195,7 +200,7 @@ Free instances sleep when idle, so the first request after a pause is slow. The 
 
 ## Tools used
 
-- **PayPal JS SDK v5 Buttons**: the donate buttons on the campaign page.
+- **PayPal JavaScript SDK v6** (`web-sdk/v6/core`, `paypal-payments` component): `createInstance` with the browser-safe client id, `findEligibleMethods`, the `<paypal-button>` element and `createPayPalOneTimePaymentSession` for single and split donations (`src/lib/paypalSdk.js`, `src/components/campaigns/PayPalCheckout.jsx`). v5 Buttons are kept only as a fallback.
 - **PayPal Orders v2**: create and capture donation orders from the API, including split orders with multiple purchase units (one per campaign).
 - **PayPal refund capture API** (`POST /v2/payments/captures/{capture_id}/refund`): full and partial admin refunds.
 - **PayPal Payouts v1**: create payout batches and read batch status.
@@ -207,7 +212,7 @@ Free instances sleep when idle, so the first request after a pause is slow. The 
 - **Render**: hosting through `render.yaml`.
 - **Kiro** (AI coding assistant): used to plan, write and test the backend, the PayPal and Groq integrations, the frontend wiring and this documentation.
 
-We evaluated the PayPal Agent Toolkit and did not use it. It has no Payouts tools, and our agent must only read our own database and draft batches, never move money itself.
+We evaluated the PayPal Agent Toolkit and MCP server and did not use them. Their tool list covers invoices, orders, refunds, disputes, shipment tracking, catalog, subscriptions and reporting, but has no Payouts tools, and Payouts is the core of ReliefPay. Our agent uses its own tools that read our database and draft batches; releasing money stays a human-only step.
 
 ## Postman collection
 
@@ -240,7 +245,9 @@ All money-moving calls go to the PayPal sandbox. Order capture (needs buyer appr
 - **AG Studio watermark** shows without `AG_STUDIO_LICENSE`.
 - **AG Studio assistant needs Bedrock.** Each assistant turn sends about 5k to 7k input tokens, which does not fit Groq's free tier (8,000 tokens per minute), so it is off unless `AG_STUDIO_AI=on` with `AG_STUDIO_AI_PROVIDER=bedrock`. An answer takes about 40 to 90 seconds. Opening it in View mode docks it on the right and narrows the report. On Bedrock, image and file attachments and reasoning output are not forwarded, and a JSON reply format is asked for in the system prompt because Nova 2 Lite has no structured outputs on Converse.
 - **Demo data resets on Render.** The free plan has no persistent disk, so the SQLite database is re-seeded on every redeploy or restart.
-- **Some pages still use sample data:** the beneficiary dashboard, AI verification, beneficiary registration, the emergency application form and the map. The volunteer field tasks are demo data too, but Start Task, evidence upload (images or PDF), field notes, Contact, Mark Complete and View Details all work; progress is saved in the browser only and files are not sent to a server.
+- **Evidence and documents are not uploaded.** Volunteer evidence and application documents save the file name, size and type, not the file itself.
+- **New applications have no AI assessment yet.** The AI findings on the verification page come from the seeded applications.
+- **The donor dashboard history** still includes sample donations next to the real ones.
 - **A batch can get stuck in `RELEASING`.** If the API process stops after sending a batch to PayPal and before PayPal answers, the batch stays `RELEASING` and cannot be released or synced. Check the batch in the PayPal sandbox dashboard, then run `npm run seed:reset --prefix backend` to reset the demo data. On Render the database is re-seeded on every restart.
 
 ## License

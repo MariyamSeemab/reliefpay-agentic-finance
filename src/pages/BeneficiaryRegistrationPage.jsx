@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ChevronRight, ChevronLeft, Check, AlertCircle } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
+import { apiFetch } from '../lib/api';
 import { formatMoney } from '../lib/money';
 
 export default function BeneficiaryRegistrationPage() {
@@ -11,8 +12,8 @@ export default function BeneficiaryRegistrationPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     // Personal Information
-    fullName: '',
-    email: '',
+    fullName: currentUser?.name || '',
+    email: currentUser?.email || '',
     mobileNumber: '',
     
     // Address
@@ -34,6 +35,24 @@ export default function BeneficiaryRegistrationPage() {
 
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [isUpdate, setIsUpdate] = useState(false);
+
+  // Load a saved profile so the form can be reviewed and updated.
+  useEffect(() => {
+    apiFetch('/beneficiary/profile')
+      .then((data) => {
+        if (!data?.profile) return;
+        setIsUpdate(true);
+        const p = data.profile;
+        setFormData((prev) => ({
+          ...prev,
+          ...Object.fromEntries(Object.entries(p).map(([k, val]) => [k, val === null || val === undefined ? '' : String(val)])),
+        }));
+      })
+      .catch(() => {});
+  }, []);
 
   const steps = [
     { number: 1, title: 'Personal Info', fields: ['fullName', 'email', 'mobileNumber'] },
@@ -57,7 +76,7 @@ export default function BeneficiaryRegistrationPage() {
         break;
       case 'mobileNumber':
         if (!value) fieldErrors.mobileNumber = 'Mobile number is required';
-        if (!/^\+?91?[0-9]{10}$/.test(value.replace(/\s/g, ''))) fieldErrors.mobileNumber = 'Valid Indian phone required';
+        if (!/^\+?[0-9]{10,15}$/.test(value.replace(/[\s-]/g, ''))) fieldErrors.mobileNumber = 'Valid phone number required (10 to 15 digits)';
         break;
       case 'residentialAddress':
         if (!value.trim()) fieldErrors.residentialAddress = 'Address is required';
@@ -92,7 +111,7 @@ export default function BeneficiaryRegistrationPage() {
         break;
       case 'emergencyContactPhone':
         if (!value) fieldErrors.emergencyContactPhone = 'Emergency contact phone is required';
-        if (!/^\+?91?[0-9]{10}$/.test(value.replace(/\s/g, ''))) fieldErrors.emergencyContactPhone = 'Valid phone required';
+        if (!/^\+?[0-9]{10,15}$/.test(value.replace(/[\s-]/g, ''))) fieldErrors.emergencyContactPhone = 'Valid phone required';
         break;
       default:
         break;
@@ -144,7 +163,7 @@ export default function BeneficiaryRegistrationPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Final validation of all fields
     const allErrors = {};
     steps.forEach(step => {
@@ -154,15 +173,23 @@ export default function BeneficiaryRegistrationPage() {
       });
     });
 
-    if (Object.keys(allErrors).length === 0) {
-      setSubmitted(true);
-      // In real app, would submit to backend here
-      console.log('Registration submitted:', formData);
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
-    } else {
+    if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
+      return;
+    }
+
+    // Name and email come from the account; the rest is the profile.
+    const { fullName, email, ...profile } = formData;
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      await apiFetch('/beneficiary/profile', { method: 'PUT', body: profile });
+      setSubmitted(true);
+      setTimeout(() => navigate('/dashboard'), 2000);
+    } catch (err) {
+      setSubmitError(err.body?.field ? `${err.message}: ${err.body.field}` : err.message || 'Could not save your registration.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -175,7 +202,7 @@ export default function BeneficiaryRegistrationPage() {
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Registration Successful!</h2>
           <p className="text-slate-600 mb-6">
-            Your beneficiary profile has been created. You can now apply for emergency assistance.
+            {isUpdate ? 'Your beneficiary profile has been updated.' : 'Your beneficiary profile has been created. You can now apply for emergency assistance.'}
           </p>
           <p className="text-sm text-slate-500">Redirecting to dashboard...</p>
         </div>
@@ -255,6 +282,8 @@ export default function BeneficiaryRegistrationPage() {
                   type="text"
                   name="fullName"
                   value={formData.fullName}
+                  readOnly
+                  title="From your ReliefPay account"
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
                     errors.fullName ? 'border-red-500' : 'border-slate-300'
@@ -274,6 +303,8 @@ export default function BeneficiaryRegistrationPage() {
                   type="email"
                   name="email"
                   value={formData.email}
+                  readOnly
+                  title="From your ReliefPay account"
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
                     errors.email ? 'border-red-500' : 'border-slate-300'
@@ -588,6 +619,9 @@ export default function BeneficiaryRegistrationPage() {
           )}
 
           {/* Navigation Buttons */}
+          {submitError && (
+            <p role="alert" className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</p>
+          )}
           <div className="flex gap-4 mt-8 border-t border-slate-200 pt-6">
             <button
               onClick={handlePrev}
@@ -613,10 +647,11 @@ export default function BeneficiaryRegistrationPage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="ml-auto flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition"
+                disabled={submitting}
+                className="ml-auto flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition disabled:opacity-60 disabled:cursor-wait"
               >
                 <Check className="w-4 h-4" />
-                Complete Registration
+                {submitting ? 'Saving...' : isUpdate ? 'Update Registration' : 'Complete Registration'}
               </button>
             )}
           </div>

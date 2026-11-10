@@ -40,7 +40,7 @@
         <mxCell id="spa-pages" value="&lt;b&gt;Pages&lt;/b&gt;&lt;br&gt;Campaigns and split donation&lt;br&gt;Donor / admin / auditor dashboards&lt;br&gt;AI Command Centre&lt;br&gt;Payment Agent (tick who gets paid)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0284C7;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="spa">
           <mxGeometry x="15" y="55" width="240" height="105" as="geometry" />
         </mxCell>
-        <mxCell id="spa-sdk" value="&lt;b&gt;PayPal JS SDK Buttons&lt;/b&gt;&lt;br&gt;buyer approves the order&lt;br&gt;in the PayPal popup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7E6;strokeColor=#003087;fontSize=11;" vertex="1" parent="spa">
+        <mxCell id="spa-sdk" value="&lt;b&gt;PayPal JS SDK v6&lt;/b&gt;&lt;br&gt;buyer approves the order&lt;br&gt;in the PayPal popup" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7E6;strokeColor=#003087;fontSize=11;" vertex="1" parent="spa">
           <mxGeometry x="15" y="180" width="240" height="70" as="geometry" />
         </mxCell>
         <mxCell id="spa-studio" value="&lt;b&gt;AG Studio analytics&lt;/b&gt;&lt;br&gt;ag-studio-react dashboard&lt;br&gt;+ floating AI Assistant" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#059669;fontSize=11;" vertex="1" parent="spa">

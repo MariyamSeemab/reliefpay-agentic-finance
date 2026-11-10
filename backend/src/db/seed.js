@@ -8,6 +8,7 @@ import {
   SEED_PASSWORD,
   SEED_PAYOUT_BATCH,
   SEED_USERS,
+  SEED_VOLUNTEER_TASKS,
 } from './seedData.js';
 
 export function seedIfEmpty(db, { bcryptRounds = 10 } = {}) {
@@ -83,6 +84,18 @@ export function seedIfEmpty(db, { bcryptRounds = 10 } = {}) {
     );
     for (const i of b.items) {
       insertItem.run(i.id, b.id, i.applicationId, emailByApp.get(i.applicationId), i.amountCents, b.createdAt);
+    }
+
+    const insertTask = db.prepare(
+      `INSERT INTO volunteer_tasks (id, volunteer_user_id, application_id, beneficiary_name, area, status,
+         due_date, notes, started_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    );
+    for (const t of SEED_VOLUNTEER_TASKS) {
+      insertTask.run(
+        t.id, t.volunteerUserId, t.applicationId, t.beneficiaryName, t.area, t.status,
+        t.dueDate, t.notes, t.status === 'IN_PROGRESS' ? now : null, now, now,
+      );
     }
   });
 

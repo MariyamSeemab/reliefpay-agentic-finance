@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { ChevronRight, ChevronLeft, Check, AlertCircle, Upload, FileText } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
+import { apiFetch } from '../lib/api';
 import { formatMoney } from '../lib/money';
 
 export default function EmergencyApplicationPage() {
@@ -11,7 +12,16 @@ export default function EmergencyApplicationPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [submitted, setSubmitted] = useState(false);
-  const [applicationId] = useState(`RPA-2026-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`);
+  const [submitting, setSubmitting] = useState(false);
+  const [applicationId, setApplicationId] = useState('');
+  const [campaigns, setCampaigns] = useState([]);
+
+  // Applications belong to a campaign, so the applicant picks an active one.
+  useEffect(() => {
+    apiFetch('/campaigns', { auth: false })
+      .then((data) => setCampaigns((data?.campaigns ?? []).filter((c) => c.status === 'ACTIVE')))
+      .catch(() => setCampaigns([]));
+  }, []);
   
   const [formData, setFormData] = useState({
     // Personal
@@ -34,11 +44,11 @@ export default function EmergencyApplicationPage() {
     requestedAmount: '',
     justification: '',
     
-    // Bank Details
-    bankName: '',
-    accountHolder: '',
-    accountNumber: '',
-    ifscCode: '',
+    campaignId: '',
+    householdMembers: '',
+
+    // Payout (PayPal Payouts sends approved funds to this email)
+    paypalEmail: currentUser?.email || '',
     
     // Declaration
     acceptTerms: false,
@@ -49,11 +59,11 @@ export default function EmergencyApplicationPage() {
 
   const steps = [
     { number: 1, title: 'Personal Info', fields: ['fullName', 'email', 'phone'] },
-    { number: 2, title: 'Disaster Info', fields: ['emergencyType', 'disasterType', 'disasterLocation'] },
+    { number: 2, title: 'Disaster Info', fields: ['campaignId', 'emergencyType', 'disasterType', 'disasterLocation', 'householdMembers'] },
     { number: 3, title: 'Damage Assessment', fields: ['propertyDamageLevel', 'damageDescription', 'estimatedDamage'] },
     { number: 4, title: 'Assistance Needed', fields: ['assistanceCategory', 'requestedAmount', 'justification'] },
     { number: 5, title: 'Documents', fields: [] },
-    { number: 6, title: 'Payment Details', fields: ['bankName', 'accountHolder', 'accountNumber', 'ifscCode'] },
+    { number: 6, title: 'Payment Details', fields: ['paypalEmail'] },
     { number: 7, title: 'Review & Submit', fields: [] },
   ];
 
@@ -103,7 +113,7 @@ export default function EmergencyApplicationPage() {
         break;
       case 'phone':
         if (!value) fieldErrors.phone = 'Phone is required';
-        if (!/^\+?91?[0-9]{10}$/.test(value.replace(/\s/g, ''))) fieldErrors.phone = 'Valid phone required';
+        if (!/^\+?[0-9]{10,15}$/.test(value.replace(/[\s-]/g, ''))) fieldErrors.phone = 'Valid phone required';
         break;
       case 'emergencyType':
         if (!value) fieldErrors.emergencyType = 'Emergency type is required';
@@ -130,24 +140,22 @@ export default function EmergencyApplicationPage() {
       case 'requestedAmount':
         if (!value) fieldErrors.requestedAmount = 'Requested amount is required';
         if (isNaN(value) || parseInt(value) < 10) fieldErrors.requestedAmount = 'Minimum amount is $10';
+        else if (parseInt(value) > 10000) fieldErrors.requestedAmount = 'Maximum amount is $10,000';
         break;
       case 'justification':
         if (!value.trim()) fieldErrors.justification = 'Please explain why you need this assistance';
         if (value.length < 20) fieldErrors.justification = 'Please provide more detail (min 20 characters)';
         break;
-      case 'bankName':
-        if (!value.trim()) fieldErrors.bankName = 'Bank name is required';
+      case 'campaignId':
+        if (!value) fieldErrors.campaignId = 'Please choose the relief campaign you are applying to';
         break;
-      case 'accountHolder':
-        if (!value.trim()) fieldErrors.accountHolder = 'Account holder name is required';
+      case 'householdMembers':
+        if (value !== '' && (!/^\d+$/.test(value) || parseInt(value, 10) < 1 || parseInt(value, 10) > 50)) {
+          fieldErrors.householdMembers = 'Enter a number from 1 to 50';
+        }
         break;
-      case 'accountNumber':
-        if (!value) fieldErrors.accountNumber = 'Account number is required';
-        if (!/^[0-9]{9,18}$/.test(value)) fieldErrors.accountNumber = 'Valid account number required';
-        break;
-      case 'ifscCode':
-        if (!value) fieldErrors.ifscCode = 'IFSC code is required';
-        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(value)) fieldErrors.ifscCode = 'Valid IFSC code required';
+      case 'paypalEmail':
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) fieldErrors.paypalEmail = 'Valid PayPal email required';
         break;
       default:
         break;
@@ -225,7 +233,7 @@ export default function EmergencyApplicationPage() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.acceptTerms || !formData.consentVerification) {
       setErrors({
         declaration: 'You must accept all terms and consent to proceed'
@@ -233,9 +241,35 @@ export default function EmergencyApplicationPage() {
       return;
     }
 
-    setSubmitted(true);
-    console.log('Application submitted:', { ...formData, applicationId, documents: uploadedFiles });
-    // In real app, would submit to backend
+    setSubmitting(true);
+    try {
+      const { application } = await apiFetch('/applications', {
+        method: 'POST',
+        body: {
+          campaignId: formData.campaignId,
+          phone: formData.phone,
+          area: formData.disasterLocation,
+          disasterType: formData.disasterType,
+          householdMembers: formData.householdMembers ? parseInt(formData.householdMembers, 10) : undefined,
+          requestedAmount: Number(formData.requestedAmount),
+          paypalEmail: formData.paypalEmail,
+          emergencyType: formData.emergencyType,
+          assistanceCategory: formData.assistanceCategory,
+          damageLevel: formData.propertyDamageLevel,
+          estimatedDamage: Number(formData.estimatedDamage),
+          damageDescription: formData.damageDescription,
+          justification: formData.justification,
+          // Only file names are sent; the files themselves are not uploaded.
+          documents: uploadedFiles.map((f) => f.name),
+        },
+      });
+      setApplicationId(application.id);
+      setSubmitted(true);
+    } catch (err) {
+      setErrors({ declaration: err.message || 'Could not submit your application. Please try again.' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -376,7 +410,50 @@ export default function EmergencyApplicationPage() {
           {currentStep === 2 && (
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-slate-900">Disaster Information</h2>
-              
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Relief Campaign *</label>
+                <select
+                  name="campaignId"
+                  value={formData.campaignId}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
+                    errors.campaignId ? 'border-red-500' : 'border-slate-300'
+                  }`}
+                >
+                  <option value="">{campaigns.length ? 'Select the campaign for your area' : 'Loading campaigns...'}</option>
+                  {campaigns.map((c) => (
+                    <option key={c.id} value={c.id}>{c.title}{c.location ? ` (${c.location})` : ''}</option>
+                  ))}
+                </select>
+                {errors.campaignId && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" /> {errors.campaignId}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Household Members</label>
+                <input
+                  type="number"
+                  name="householdMembers"
+                  min="1"
+                  max="50"
+                  value={formData.householdMembers}
+                  onChange={handleInputChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
+                    errors.householdMembers ? 'border-red-500' : 'border-slate-300'
+                  }`}
+                  placeholder="Number of people in your household"
+                />
+                {errors.householdMembers && (
+                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" /> {errors.householdMembers}
+                  </p>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Type of Emergency *</label>
                 <select
@@ -636,91 +713,31 @@ export default function EmergencyApplicationPage() {
 
           {currentStep === 6 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-slate-900">Bank Account Details</h2>
-              <p className="text-slate-600">This is where assistance funds will be transferred</p>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Bank Name *</label>
-                <input
-                  type="text"
-                  name="bankName"
-                  value={formData.bankName}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
-                    errors.bankName ? 'border-red-500' : 'border-slate-300'
-                  }`}
-                  placeholder="e.g., HDFC Bank, SBI"
-                />
-                {errors.bankName && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" /> {errors.bankName}
-                  </p>
-                )}
-              </div>
+              <h2 className="text-xl font-semibold text-slate-900">Payout Details</h2>
+              <p className="text-slate-600">If your application is approved, ReliefPay sends the funds to this PayPal account through PayPal Payouts.</p>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Account Holder Name *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">PayPal Email *</label>
                 <input
-                  type="text"
-                  name="accountHolder"
-                  value={formData.accountHolder}
+                  type="email"
+                  name="paypalEmail"
+                  value={formData.paypalEmail}
                   onChange={handleInputChange}
                   className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
-                    errors.accountHolder ? 'border-red-500' : 'border-slate-300'
+                    errors.paypalEmail ? 'border-red-500' : 'border-slate-300'
                   }`}
-                  placeholder="Name as per bank records"
+                  placeholder="you@example.com"
                 />
-                {errors.accountHolder && (
+                {errors.paypalEmail && (
                   <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-4 h-4" /> {errors.accountHolder}
+                    <AlertCircle className="w-4 h-4" /> {errors.paypalEmail}
                   </p>
                 )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Account Number *</label>
-                  <input
-                    type="text"
-                    name="accountNumber"
-                    value={formData.accountNumber}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
-                      errors.accountNumber ? 'border-red-500' : 'border-slate-300'
-                    }`}
-                    placeholder="Account number"
-                  />
-                  {errors.accountNumber && (
-                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" /> {errors.accountNumber}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">IFSC Code *</label>
-                  <input
-                    type="text"
-                    name="ifscCode"
-                    value={formData.ifscCode}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition ${
-                      errors.ifscCode ? 'border-red-500' : 'border-slate-300'
-                    }`}
-                    placeholder="e.g., HDFC0001234"
-                    maxLength="11"
-                  />
-                  {errors.ifscCode && (
-                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" /> {errors.ifscCode}
-                    </p>
-                  )}
-                </div>
               </div>
 
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm text-amber-900">
-                  <strong>Important:</strong> All bank details must match your government ID. We never share this information publicly.
+                  <strong>Important:</strong> Use the email of a PayPal account you can log in to. Reviewers see it only in masked form.
                 </p>
               </div>
             </div>
@@ -730,12 +747,6 @@ export default function EmergencyApplicationPage() {
             <div className="space-y-6">
               <h2 className="text-xl font-semibold text-slate-900">Review & Submit Application</h2>
               
-              <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                <p className="text-sm text-emerald-900">
-                  <strong>Application Reference:</strong> {applicationId}
-                </p>
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-slate-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-slate-900 mb-2 text-sm">Disaster Details</h3>
@@ -756,11 +767,11 @@ export default function EmergencyApplicationPage() {
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-slate-900 mb-2 text-sm">Bank Account</h3>
+                  <h3 className="font-semibold text-slate-900 mb-2 text-sm">Campaign & Payout</h3>
                   <div className="text-sm space-y-1 text-slate-600">
-                    <p><span className="font-medium">Bank:</span> {formData.bankName}</p>
-                    <p><span className="font-medium">Holder:</span> {formData.accountHolder}</p>
-                    <p><span className="font-medium">Account:</span> ****{formData.accountNumber?.slice(-4)}</p>
+                    <p><span className="font-medium">Campaign:</span> {campaigns.find((c) => c.id === formData.campaignId)?.title || formData.campaignId}</p>
+                    <p><span className="font-medium">Household:</span> {formData.householdMembers || 'Not given'}</p>
+                    <p><span className="font-medium">PayPal:</span> {formData.paypalEmail}</p>
                   </div>
                 </div>
 
@@ -840,10 +851,11 @@ export default function EmergencyApplicationPage() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="ml-auto flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition"
+                disabled={submitting}
+                className="ml-auto flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition disabled:opacity-60 disabled:cursor-wait"
               >
                 <Check className="w-4 h-4" />
-                Submit Application
+                {submitting ? 'Submitting...' : 'Submit Application'}
               </button>
             )}
           </div>
