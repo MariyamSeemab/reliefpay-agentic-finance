@@ -1,15 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Heart, TrendingUp, Award, Calendar, BarChart3, Download } from 'lucide-react';
-import { INITIAL_DONATIONS } from '../../data/mockData';
+import { Heart, TrendingUp, Award, Calendar, Download, Split } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 import { formatMoney } from '../../lib/money';
 import { downloadTaxReceipts } from '../../lib/taxReceipt';
 
+// Net amount after any refund.
+const netAmount = (d) => Math.max(0, (d.amount || 0) - (d.refundedAmount || 0));
+
 export const DonorDashboard = ({ currentUser }) => {
-  // The API has no per-donor donation history yet, so the list stays demo data (USD).
   const navigate = useNavigate();
-  const [donations] = useState(INITIAL_DONATIONS);
+  const [allDonations, setAllDonations] = useState([]);
+  const [loadingDonations, setLoadingDonations] = useState(true);
+  const [donationsError, setDonationsError] = useState('');
+  // Receipts and totals only count money PayPal actually captured.
+  const donations = allDonations.filter((d) => d.status === 'COMPLETED');
+
+  // The donor's own donations from the API, reloaded when the tab regains
+  // focus so a donation made on the campaigns page shows up here.
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      apiFetch('/donations/mine')
+        .then(({ donations: list }) => { if (!cancelled) { setAllDonations(list ?? []); setDonationsError(''); } })
+        .catch((err) => { if (!cancelled) setDonationsError(err.message || 'Could not load your donations'); })
+        .finally(() => { if (!cancelled) setLoadingDonations(false); });
+    load();
+    window.addEventListener('focus', load);
+    return () => { cancelled = true; window.removeEventListener('focus', load); };
+  }, []);
   const [campaigns, setCampaigns] = useState([]);
   const [downloading, setDownloading] = useState(null);
   const [downloadError, setDownloadError] = useState('');
@@ -35,7 +54,7 @@ export const DonorDashboard = ({ currentUser }) => {
     return () => { cancelled = true; };
   }, []);
 
-  const totalDonated = donations.reduce((sum, d) => sum + d.amount, 0);
+  const totalDonated = donations.reduce((sum, d) => sum + netAmount(d), 0);
   const beneficiariesHelped = 450; // Mock value
   const impactPercentage = 87; // Mock value
 
@@ -94,14 +113,32 @@ export const DonorDashboard = ({ currentUser }) => {
             <h2 className="text-lg font-bold text-slate-900">Recent Donations</h2>
           </div>
           <div className="divide-y divide-slate-200">
+            {loadingDonations && <p className="p-6 text-sm text-slate-500">Loading your donations...</p>}
+            {donationsError && <p className="p-6 text-sm text-red-600">{donationsError}</p>}
+            {!loadingDonations && !donationsError && donations.length === 0 && (
+              <div className="p-6 text-sm text-slate-600">
+                No donations yet.{' '}
+                <button type="button" onClick={() => navigate('/campaigns')} className="text-emerald-700 font-semibold underline">Donate to a campaign</button>
+              </div>
+            )}
             {donations.slice(0, 5).map((donation) => (
               <div key={donation.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition">
                 <div className="flex-1">
                   <p className="font-semibold text-slate-900">{donation.campaignTitle}</p>
-                  <p className="text-xs text-slate-500">{donation.timestamp}</p>
+                  <p className="text-xs text-slate-500 flex items-center gap-2">
+                    {new Date(donation.timestamp).toLocaleString()}
+                    {donation.splitOrderId && (
+                      <span className="inline-flex items-center gap-1 bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded">
+                        <Split className="w-3 h-3" /> Split donation
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-slate-900">{formatMoney(donation.amount)}</p>
+                  <p className="font-bold text-slate-900">{formatMoney(netAmount(donation), donation.currency)}</p>
+                  {donation.refundedAmount > 0 && (
+                    <p className="text-xs text-slate-500">{formatMoney(donation.refundedAmount, donation.currency)} refunded</p>
+                  )}
                   <p className="text-xs bg-emerald-50 text-emerald-700 px-2 py-1 rounded inline-block mt-1">{donation.status}</p>
                 </div>
                 <button
@@ -151,7 +188,7 @@ export const DonorDashboard = ({ currentUser }) => {
 
           <button
             onClick={() => downloadReceipt(donations)}
-            disabled={downloading !== null}
+            disabled={downloading !== null || donations.length === 0}
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Download className="w-4 h-4" />

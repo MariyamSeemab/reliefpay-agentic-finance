@@ -23,6 +23,13 @@ export function donationsRouter({ db, config, paypal }) {
     res.json({ donations: listDonations(db) });
   });
 
+  // The signed-in user's own donations, newest first. PENDING orders (opened but
+  // never paid) are left out. Split donations appear as one row per campaign.
+  router.get('/donations/mine', auth, (req, res) => {
+    const donations = listDonations(db).filter((d) => d.userId === req.user.id && d.status !== 'PENDING');
+    res.json({ donations });
+  });
+
   router.post('/donations/split-orders', auth, async (req, res) => {
     const result = await createSplitOrder(db, paypal, config, {
       user: req.user,
