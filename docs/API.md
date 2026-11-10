@@ -45,6 +45,7 @@ The [public Postman workspace](https://www.postman.com/orbital-module-cosmonaut-
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | POST | `/api/donations/orders` | JWT | Create a PayPal order for one campaign |
+| GET | `/api/donations/mine` | any signed-in user | The caller's own captured donations, one row per campaign for split donations |
 | POST | `/api/donations/orders/:orderId/capture` | JWT | Capture after the buyer approves in the PayPal popup |
 | POST | `/api/donations/split-orders` | JWT | One PayPal order with one purchase unit per campaign (2 to 10 campaigns) |
 | POST | `/api/donations/split-orders/:orderId/capture` | JWT | Capture a split order; each unit is credited to its own campaign once |

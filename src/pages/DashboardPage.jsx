@@ -10,7 +10,6 @@ import { Heart, LogOut, Settings, User, Menu, X } from 'lucide-react';
 import { apiFetch } from '../lib/api';
 import { formatMoney } from '../lib/money';
 import { downloadTaxReceipts } from '../lib/taxReceipt';
-import { INITIAL_DONATIONS } from '../data/mockData';
 import { SettingsModal } from '../components/common/SettingsModal';
 import { AuditorReports } from '../components/dashboard/AuditorReports';
 
@@ -430,7 +429,7 @@ export default function DashboardPage() {
                 <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
                   <p className="text-slate-600 mb-4">Download your tax receipts for donations</p>
                   <button
-                    onClick={() => downloadTaxReceipts(INITIAL_DONATIONS, { donorName: currentUser?.name }).catch(() => {})}
+                    onClick={() => apiFetch('/donations/mine').then(({ donations }) => downloadTaxReceipts(donations.filter((d) => d.status === 'COMPLETED'), { donorName: currentUser?.name })).catch(() => {})}
                     className="bg-[#087E83] hover:bg-[#123B4A] text-white font-bold px-6 py-2 rounded-lg transition"
                   >
                     📥 Download All Receipts

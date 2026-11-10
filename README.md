@@ -54,7 +54,7 @@ All money is stored as integer cents in USD.
 - **Relief map.** Campaign hubs for everyone; staff see every beneficiary request, a beneficiary sees only their own, and donors and volunteers see campaigns only.
 - **Role-based access for 6 roles:** Admin, Reviewer, Beneficiary, Donor, Volunteer, Auditor.
 
-Every role's pages read and write the API: login/signup, campaigns, single and split donations, the admin dashboard, AI Command Centre, Payment Agent, analytics and refunds, application management, AI verification, the map, the beneficiary dashboard, registration and application form, the volunteer task board, and the auditor dashboard and audit log. The donor dashboard still mixes API data with sample donation history.
+Every role's pages read and write the API: login/signup, campaigns, single and split donations, the admin dashboard, AI Command Centre, Payment Agent, analytics and refunds, application management, AI verification, the map, the beneficiary dashboard, registration and application form, the volunteer task board, and the auditor dashboard and audit log. The donor dashboard lists the donor's own captured donations, including each part of a split donation, with receipts.
 
 ## Documentation
 
@@ -247,7 +247,6 @@ All money-moving calls go to the PayPal sandbox. Order capture (needs buyer appr
 - **Demo data resets on Render.** The free plan has no persistent disk, so the SQLite database is re-seeded on every redeploy or restart.
 - **Evidence and documents are not uploaded.** Volunteer evidence and application documents save the file name, size and type, not the file itself.
 - **New applications have no AI assessment yet.** The AI findings on the verification page come from the seeded applications.
-- **The donor dashboard history** still includes sample donations next to the real ones.
 - **A batch can get stuck in `RELEASING`.** If the API process stops after sending a batch to PayPal and before PayPal answers, the batch stays `RELEASING` and cannot be released or synced. Check the batch in the PayPal sandbox dashboard, then run `npm run seed:reset --prefix backend` to reset the demo data. On Render the database is re-seeded on every restart.
 
 ## License

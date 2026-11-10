@@ -11,6 +11,7 @@ export function mapDonation(row) {
   return {
     id: row.id,
     campaignId: row.campaign_id,
+    userId: row.user_id ?? null,
     campaignTitle: row.campaign_title ?? undefined,
     donorName: row.donor_name,
     amount: toDollars(row.amount_cents),
