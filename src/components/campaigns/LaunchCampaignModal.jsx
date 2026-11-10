@@ -156,7 +156,6 @@ export const LaunchCampaignModal = ({ isOpen, onClose, onLaunch }) => {
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              type="button"
             aria-label="Close"
             onClick={onClose}
               className="flex-1 px-4 py-2.5 border-2 border-slate-300 text-slate-900 font-bold rounded-lg hover:bg-slate-50 transition"

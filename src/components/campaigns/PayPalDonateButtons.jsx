@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
-import { loadPayPalSdk } from '../../lib/paypalSdk';
+import { PayPalCheckout } from './PayPalCheckout';
 
 let configPromise = null;
 export function getPublicConfig() {
@@ -15,7 +15,6 @@ export function getPublicConfig() {
 }
 
 export const PayPalDonateButtons = ({ campaign, amount, onDonated }) => {
-  const containerRef = useRef(null);
   const onDonatedRef = useRef(onDonated);
   onDonatedRef.current = onDonated;
   const [config, setConfig] = useState(null);
@@ -34,55 +33,30 @@ export const PayPalDonateButtons = ({ campaign, amount, onDonated }) => {
   const validAmount = Number.isFinite(amount) && amount >= 1;
   const canRender = Boolean(config?.paypalClientId) && isActive && validAmount;
 
-  useEffect(() => {
-    if (!canRender) return undefined;
-    let cancelled = false;
-    let buttons = null;
+  const createOrder = async () => {
+    setError('');
+    const { orderId } = await apiFetch('/donations/orders', {
+      method: 'POST',
+      body: { campaignId: campaign.id, amount },
+    });
+    return orderId;
+  };
 
-    loadPayPalSdk({ clientId: config.paypalClientId, currency: config.currency || campaign.currency || 'USD' })
-      .then((paypal) => {
-        if (cancelled || !containerRef.current) return;
-        buttons = paypal.Buttons({
-          style: { layout: 'vertical', shape: 'rect', label: 'donate' },
-          createOrder: async () => {
-            setError('');
-            const { orderId } = await apiFetch('/donations/orders', {
-              method: 'POST',
-              body: { campaignId: campaign.id, amount },
-            });
-            return orderId;
-          },
-          onApprove: async (data) => {
-            setIsProcessing(true);
-            try {
-              const r = await apiFetch(`/donations/orders/${encodeURIComponent(data.orderID)}/capture`, { method: 'POST' });
-              if (r.donation?.status === 'COMPLETED') {
-                onDonatedRef.current(r.campaign, r.donation);
-              } else {
-                setError(`PayPal did not complete the capture (status ${r.donation?.status || 'unknown'}).`);
-              }
-            } catch (err) {
-              setError(err.message || 'Payment capture failed');
-            } finally {
-              setIsProcessing(false);
-            }
-          },
-          onCancel: () => setError('Payment was cancelled. No money was taken.'),
-          onError: (err) => setError(err?.message || 'PayPal could not process the payment'),
-        });
-        buttons.render(containerRef.current).catch(() => {
-          // render rejects when the container is removed before PayPal finishes; ignore
-        });
-      })
-      .catch((err) => { if (!cancelled) setError(err.message || 'Failed to load PayPal'); });
-
-    return () => {
-      cancelled = true;
-      if (buttons) {
-        Promise.resolve(buttons.close()).catch(() => {});
+  const onApprove = async (orderId) => {
+    setIsProcessing(true);
+    try {
+      const r = await apiFetch(`/donations/orders/${encodeURIComponent(orderId)}/capture`, { method: 'POST' });
+      if (r.donation?.status === 'COMPLETED') {
+        onDonatedRef.current(r.campaign, r.donation);
+      } else {
+        setError(`PayPal did not complete the capture (status ${r.donation?.status || 'unknown'}).`);
       }
-    };
-  }, [canRender, config, campaign.id, campaign.currency, amount]);
+    } catch (err) {
+      setError(err.message || 'Payment capture failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   if (!isActive) {
     return (
@@ -103,8 +77,17 @@ export const PayPalDonateButtons = ({ campaign, amount, onDonated }) => {
       {config?.paypalClientId && !validAmount && (
         <p className="text-sm text-slate-600">Enter an amount of at least $1 to donate.</p>
       )}
-      <div ref={containerRef} className={canRender ? '' : 'hidden'} />
-      {isProcessing && <p className="text-sm text-slate-600">Confirming your payment with PayPal…</p>}
+      {canRender && (
+        <PayPalCheckout
+          config={config}
+          createOrder={createOrder}
+          onApprove={onApprove}
+          disabled={isProcessing}
+          onCancel={() => setError('Payment was cancelled. No money was taken.')}
+          onError={(err) => setError(err?.message || 'PayPal could not process the payment')}
+        />
+      )}
+      {isProcessing && <p className="text-sm text-slate-600">Confirming your payment with PayPal...</p>}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
