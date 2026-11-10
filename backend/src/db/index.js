@@ -172,6 +172,7 @@ export function openDb(filePath) {
   db.exec('CREATE INDEX IF NOT EXISTS idx_donations_split ON donations(split_order_id)');
   addColumnIfMissing(db, 'payout_batches', 'sender_batch_id', 'TEXT');
   addColumnIfMissing(db, 'applications', 'details_json', "TEXT NOT NULL DEFAULT '{}'");
+  addColumnIfMissing(db, 'applications', 'verification_json', "TEXT NOT NULL DEFAULT '{}'");
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_payout_batches_sender ON payout_batches(sender_batch_id)');
   return db;
 }

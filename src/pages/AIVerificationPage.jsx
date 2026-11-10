@@ -1,56 +1,61 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, CheckCircle, FileText, TrendingUp, Shield, Eye, Flag, Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle, FileText, Shield, Flag } from 'lucide-react';
 import { BackButton } from '../components/common/BackButton';
-import { INITIAL_APPLICATIONS } from '../data/mockData';
+import { apiFetch } from '../lib/api';
+
+const EMPTY_VERIFICATION = { reviewed: [], flagged: [], decision: null };
 
 export default function AIVerificationPage() {
-  const navigate = useNavigate();
-  const [applications] = useState(INITIAL_APPLICATIONS);
-  const [selectedApp, setSelectedApp] = useState(applications[0]);
-  const [reviewedFindings, setReviewedFindings] = useState([]);
-  const [flaggedFindings, setFlaggedFindings] = useState([]);
-  const [showIrrelevant, setShowIrrelevant] = useState(false);
+  const [applications, setApplications] = useState([]);
+  const [selectedId, setSelectedId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const handleMarkAsReviewed = (findingId) => {
-    if (!reviewedFindings.includes(findingId)) {
-      setReviewedFindings([...reviewedFindings, findingId]);
+  // Applications with AI warnings, loaded from the API.
+  useEffect(() => {
+    apiFetch('/applications')
+      .then((data) => {
+        const apps = data?.applications ?? [];
+        setApplications(apps);
+        const firstFlagged = apps.find((a) => a.aiFindings.some((f) => f.severity === 'WARNING')) ?? apps[0];
+        setSelectedId(firstFlagged?.id ?? null);
+      })
+      .catch((err) => setError(err.message || 'Could not load applications.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const selectedApp = applications.find((a) => a.id === selectedId) ?? null;
+  const v = { ...EMPTY_VERIFICATION, ...(selectedApp?.verification ?? {}) };
+  const reviewedFindings = v.reviewed;
+  const flaggedFindings = v.flagged;
+
+  // Every reviewer action is saved to the server and written to the audit log.
+  const save = async (app, next) => {
+    setSaving(true);
+    setError('');
+    try {
+      const { application } = await apiFetch(`/applications/${encodeURIComponent(app.id)}/verification`, {
+        method: 'PUT',
+        body: { reviewed: next.reviewed, flagged: next.flagged, decision: next.decision },
+      });
+      setApplications((prev) => prev.map((a) => (a.id === application.id ? application : a)));
+    } catch (err) {
+      setError(err.message || 'Could not save the review.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleFlagFinding = (findingId) => {
-    if (!flaggedFindings.includes(findingId)) {
-      setFlaggedFindings([...flaggedFindings, findingId]);
-    }
-  };
+  const add = (list, id) => [...new Set([...list, id])];
+  const handleMarkAsReviewed = (findingId) => save(selectedApp, { ...v, reviewed: add(v.reviewed, findingId) });
+  const handleFlagFinding = (findingId) => save(selectedApp, { ...v, flagged: add(v.flagged, findingId) });
+  const handleMarkIrrelevant = handleMarkAsReviewed;
 
-  // Reviewer decisions on the demo applications, kept on this page.
-  const [decisions, setDecisions] = useState({});
   const findingIds = (app) => app.aiFindings.map((f) => f.id);
-  const completeReview = (app) => {
-    setReviewedFindings((prev) => [...new Set([...prev, ...findingIds(app)])]);
-    setFlaggedFindings((prev) => prev.filter((id) => !findingIds(app).includes(id)));
-    setDecisions((prev) => ({ ...prev, [app.id]: { type: 'REVIEWED', at: new Date().toISOString() } }));
-  };
-  const escalate = (app) => {
-    setFlaggedFindings((prev) => [...new Set([...prev, ...findingIds(app)])]);
-    setDecisions((prev) => ({ ...prev, [app.id]: { type: 'ESCALATED', at: new Date().toISOString() } }));
-  };
-  const undo = (app) => {
-    const ids = findingIds(app);
-    setReviewedFindings((prev) => prev.filter((id) => !ids.includes(id)));
-    setFlaggedFindings((prev) => prev.filter((id) => !ids.includes(id)));
-    setDecisions((prev) => {
-      const next = { ...prev };
-      delete next[app.id];
-      return next;
-    });
-  };
-
-  const handleMarkIrrelevant = (findingId) => {
-    if (!showIrrelevant) setShowIrrelevant(true);
-    handleMarkAsReviewed(findingId);
-  };
+  const completeReview = (app) => save(app, { reviewed: findingIds(app), flagged: [], decision: 'REVIEWED' });
+  const escalate = (app) => save(app, { ...v, flagged: findingIds(app), decision: 'ESCALATED' });
+  const undo = (app) => save(app, { ...EMPTY_VERIFICATION });
 
   const getRiskScore = (findings) => {
     const warningCount = findings.filter(f => f.severity === 'WARNING').length;
@@ -71,7 +76,17 @@ export default function AIVerificationPage() {
     HIGH: 'bg-red-50 border-red-200'
   };
 
-  if (!selectedApp) return null;
+  if (loading) {
+    return <div className="min-h-screen p-6 text-slate-600">Loading applications...</div>;
+  }
+  if (!selectedApp) {
+    return (
+      <div className="min-h-screen p-6">
+        <BackButton to="/dashboard" label="Back to Dashboard" />
+        <p className="text-slate-600 mt-4">{error || 'No applications to review yet.'}</p>
+      </div>
+    );
+  }
 
   const riskLevel = getRiskScore(selectedApp.aiFindings);
 
@@ -95,7 +110,7 @@ export default function AIVerificationPage() {
               {applications.filter(app => app.aiFindings.some(f => f.severity === 'WARNING')).map(app => (
                 <button
                   key={app.id}
-                  onClick={() => setSelectedApp(app)}
+                  onClick={() => setSelectedId(app.id)}
                   className={`w-full p-3 rounded-lg text-left transition ${
                     selectedApp.id === app.id
                       ? 'bg-emerald-100 border border-emerald-300'
@@ -210,7 +225,7 @@ export default function AIVerificationPage() {
                       </div>
                     </div>
 
-                    {finding.fields.length > 0 && (
+                    {finding.fields?.length > 0 && (
                       <div className="mb-4 p-3 bg-white rounded-lg">
                         <p className="text-xs font-semibold text-slate-600 mb-2">AFFECTED FIELDS</p>
                         <div className="flex flex-wrap gap-2">
@@ -276,10 +291,14 @@ export default function AIVerificationPage() {
             {/* Action Panel */}
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
               <h3 className="font-semibold text-slate-900 mb-4">Reviewer Actions</h3>
+              {error && (
+                <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <button
                   type="button"
                   onClick={() => completeReview(selectedApp)}
+                  disabled={saving}
                   className="px-4 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium text-sm"
                 >
                   <CheckCircle className="w-4 h-4 inline mr-2" />
@@ -288,22 +307,23 @@ export default function AIVerificationPage() {
                 <button
                   type="button"
                   onClick={() => escalate(selectedApp)}
+                  disabled={saving}
                   className="px-4 py-3 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition font-medium text-sm"
                 >
                   <AlertTriangle className="w-4 h-4 inline mr-2" />
                   Escalate for Investigation
                 </button>
               </div>
-              {decisions[selectedApp.id] && (
+              {v.decision && (
                 <div
                   role="status"
-                  className={`mt-4 rounded-lg border px-4 py-3 text-sm ${decisions[selectedApp.id].type === 'REVIEWED' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}
+                  className={`mt-4 rounded-lg border px-4 py-3 text-sm ${v.decision === 'REVIEWED' ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-200 text-amber-800'}`}
                 >
-                  {decisions[selectedApp.id].type === 'REVIEWED'
+                  {v.decision === 'REVIEWED'
                     ? `Review complete for ${selectedApp.id}: all ${selectedApp.aiFindings.length} AI findings marked as reviewed.`
                     : `${selectedApp.id} escalated for investigation: all AI findings flagged.`}
                   {' '}
-                  <span className="text-xs opacity-80">({new Date(decisions[selectedApp.id].at).toLocaleString()})</span>
+                  <span className="text-xs opacity-80">({v.decidedBy ? `${v.decidedBy}, ` : ''}{new Date(v.decidedAt).toLocaleString()})</span>
                   <button type="button" onClick={() => undo(selectedApp)} className="ml-3 underline text-xs">Undo</button>
                 </div>
               )}

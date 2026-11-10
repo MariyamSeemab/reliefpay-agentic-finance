@@ -41,10 +41,12 @@ export function mapApplication(row, currency = 'USD') {
     documents: parseJson(row.documents_json, []),
     remarks: row.remarks,
     details: parseJson(row.details_json, {}),
+    verification: parseJson(row.verification_json, {}),
     currency,
   };
 }
 
+const VERIFICATION_DECISIONS = ['REVIEWED', 'ESCALATED'];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_REQUEST = 10;
 const MAX_REQUEST = 10000;
@@ -177,6 +179,51 @@ export function applicationsRouter({ db, config }) {
 
     const row = db.prepare('SELECT * FROM applications WHERE id = ?').get(id);
     return res.status(201).json({ application: mapApplication(row, currency) });
+  });
+
+  // Saves a reviewer's work on the AI Verification page: which AI findings are
+  // reviewed or flagged, and the overall decision. It does not change the
+  // application status; approving and rejecting stay on the review route.
+  router.put('/applications/:id/verification', auth, requireRole('ADMIN', 'REVIEWER'), (req, res) => {
+    const row = db.prepare('SELECT * FROM applications WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'NOT_FOUND' });
+
+    const { reviewed, flagged, decision } = req.body ?? {};
+    if (decision !== null && decision !== undefined && !VERIFICATION_DECISIONS.includes(decision)) {
+      return res.status(400).json({ error: 'INVALID_DECISION' });
+    }
+    const findingIds = new Set(parseJson(row.ai_findings_json, []).map((f) => String(f.id)));
+    const pick = (list) => [...new Set((Array.isArray(list) ? list : []).map(String))].filter((id) => findingIds.has(id));
+
+    const actor = actorFromUser(req.user);
+    const now = new Date().toISOString();
+    const previous = parseJson(row.verification_json, {});
+    const verification = {
+      reviewed: pick(reviewed),
+      flagged: pick(flagged),
+      decision: decision ?? null,
+      decidedAt: decision ? (decision === previous.decision ? previous.decidedAt : now) : null,
+      decidedBy: decision ? (decision === previous.decision ? previous.decidedBy : actor.label) : null,
+      updatedAt: now,
+    };
+
+    db.prepare('UPDATE applications SET verification_json = ?, updated_at = ? WHERE id = ?')
+      .run(JSON.stringify(verification), now, row.id);
+
+    let action = 'AI_FINDINGS_UPDATED';
+    if (verification.decision !== (previous.decision ?? null)) {
+      action = verification.decision ? `AI_VERIFICATION_${verification.decision}` : 'AI_VERIFICATION_CLEARED';
+    }
+    writeAudit(db, {
+      actor,
+      action,
+      target: `Application ${row.id}`,
+      status: 'VERIFIED',
+      details: { reviewed: verification.reviewed.length, flagged: verification.flagged.length },
+    });
+
+    const updated = db.prepare('SELECT * FROM applications WHERE id = ?').get(row.id);
+    return res.json({ application: mapApplication(updated, currency) });
   });
 
   router.patch('/applications/:id/status', auth, requireRole('ADMIN', 'REVIEWER'), (req, res) => {
