@@ -224,7 +224,10 @@ The same files are in `docs/postman/`: `ReliefPay.postman_collection.json` and `
 2. Select the **ReliefPay (Render)** environment. `baseUrl` defaults to `https://reliefpay.onrender.com`; change it to `http://localhost:4000` for a local run.
 3. Set `adminPassword` to the demo password from [Demo accounts](#demo-accounts) as the environment's current value.
 4. Run **Auth > Login**. Its test script saves the JWT to the collection variable `token`, which every other request sends as a bearer token.
-5. Run the other folders: health and config, campaigns, donations (single and split orders), AI chat and split suggestion, payout draft and list, audit logs and analytics.
+5. Run the other folders: health and config, campaigns, donations (single and split orders, and **My donations**), AI chat and split suggestion, payout draft and list, audit logs, analytics, and **Applications & AI verification**.
+6. The **Beneficiary** and **Volunteer** folders start with their own login request, which switches `token` to that demo account (same demo password). They cover submitting an application, the registration profile, and field tasks. Run **Auth > Login** again to switch back to admin.
+
+The whole collection (27 requests) passes with Newman: `npx newman run docs/postman/ReliefPay.postman_collection.json -e docs/postman/ReliefPay.postman_environment.json --env-var adminPassword=<demo password>`.
 
 All money-moving calls go to the PayPal sandbox. Order capture (needs buyer approval in the PayPal popup) and payout release (needs the payout authorization code) are intentionally not in the collection.
 

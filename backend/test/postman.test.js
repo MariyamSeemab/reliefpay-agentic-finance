@@ -44,6 +44,11 @@ test('login saves the token and required endpoints are covered', () => {
     'GET /api/payouts',
     'GET /api/audit-logs',
     'GET /api/analytics',
+    'GET /api/donations/mine',
+    'GET /api/applications/mine',
+    'POST /api/applications',
+    'PUT /api/beneficiary/profile',
+    'GET /api/volunteer/tasks',
   ]) {
     assert.ok(present.has(required), `missing ${required}`);
   }
@@ -54,7 +59,9 @@ test('environment defaults to Render and holds no secrets', () => {
   assert.equal(values.baseUrl, 'https://reliefpay.onrender.com');
   assert.equal(environment._postman_variable_scope, 'environment');
   assert.equal(values.adminPassword, '');
-  assert.equal(values.token, '');
+  // token must not be an environment variable: it would hide the collection
+  // variable that Login sets, and every authenticated request would fail.
+  assert.equal('token' in values, false);
   const secretPattern = /password123|Bearer\s+ey|A21[A-Za-z0-9_-]{10,}|gsk_[A-Za-z0-9]{10,}|client_secret/i;
   assert.doesNotMatch(collectionText, secretPattern);
   assert.doesNotMatch(environmentText, secretPattern);
