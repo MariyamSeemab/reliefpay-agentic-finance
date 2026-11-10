@@ -40,8 +40,74 @@ export function mapApplication(row, currency = 'USD') {
     timeline: parseJson(row.timeline_json, []),
     documents: parseJson(row.documents_json, []),
     remarks: row.remarks,
+    details: parseJson(row.details_json, {}),
     currency,
   };
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_REQUEST = 10;
+const MAX_REQUEST = 10000;
+const PRIORITY_BY_DAMAGE = { Total: 'CRITICAL', Severe: 'HIGH', Moderate: 'MEDIUM', Minimal: 'LOW' };
+
+function cleanText(value, max) {
+  return typeof value === 'string' ? value.trim().slice(0, max) : '';
+}
+
+// Validates a beneficiary's new application. Returns { error } or { value }.
+export function parseNewApplication(body) {
+  const b = body ?? {};
+  const campaignId = cleanText(b.campaignId, 64);
+  const area = cleanText(b.area, 200);
+  const disasterType = cleanText(b.disasterType, 80);
+  const phone = cleanText(b.phone, 20);
+  const paypalEmail = cleanText(b.paypalEmail, 254).toLowerCase();
+  const amount = Number(b.requestedAmount);
+
+  if (!campaignId) return { error: 'CAMPAIGN_REQUIRED' };
+  if (!area) return { error: 'AREA_REQUIRED' };
+  if (!disasterType) return { error: 'DISASTER_TYPE_REQUIRED' };
+  if (!EMAIL_RE.test(paypalEmail)) return { error: 'INVALID_PAYPAL_EMAIL' };
+  if (!Number.isFinite(amount) || amount < MIN_REQUEST || amount > MAX_REQUEST) {
+    return { error: 'INVALID_AMOUNT', message: `Requested amount must be between $${MIN_REQUEST} and $${MAX_REQUEST}` };
+  }
+
+  const household = Number(b.householdMembers);
+  const documents = Array.isArray(b.documents)
+    ? b.documents.map((d) => cleanText(d, 120)).filter(Boolean).slice(0, 10)
+    : [];
+  const damageLevel = cleanText(b.damageLevel, 20);
+  const estimatedDamage = Number(b.estimatedDamage);
+
+  return {
+    value: {
+      campaignId,
+      area,
+      disasterType,
+      phone,
+      paypalEmail,
+      requestedCents: Math.round(amount * 100),
+      householdMembers: Number.isInteger(household) && household > 0 && household <= 50 ? household : null,
+      priority: PRIORITY_BY_DAMAGE[damageLevel] ?? 'MEDIUM',
+      documents,
+      details: {
+        emergencyType: cleanText(b.emergencyType, 80),
+        assistanceCategory: cleanText(b.assistanceCategory, 80),
+        damageLevel,
+        estimatedDamage: Number.isFinite(estimatedDamage) && estimatedDamage >= 0 ? estimatedDamage : null,
+        damageDescription: cleanText(b.damageDescription, 2000),
+        justification: cleanText(b.justification, 2000),
+      },
+    },
+  };
+}
+
+function nextApplicationId(db) {
+  const year = new Date().getUTCFullYear();
+  const prefix = `RPA-${year}-`;
+  const rows = db.prepare('SELECT id FROM applications WHERE id LIKE ?').all(`${prefix}%`);
+  const max = rows.reduce((m, r) => Math.max(m, Number(r.id.slice(prefix.length)) || 0), 0);
+  return prefix + String(max + 1).padStart(4, '0');
 }
 
 export function applicationsRouter({ db, config }) {
@@ -72,6 +138,45 @@ export function applicationsRouter({ db, config }) {
       .all(req.user.name)
       .map((r) => mapApplication(r, currency));
     res.json({ applications });
+  });
+
+  // A beneficiary submits a new application. It goes straight to the review
+  // queue as UNDER_REVIEW and is linked to the beneficiary by account name.
+  router.post('/applications', auth, requireRole('BENEFICIARY'), (req, res) => {
+    const parsed = parseNewApplication(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error, message: parsed.message });
+    const a = parsed.value;
+
+    const campaign = db.prepare('SELECT id, status, lat, lng FROM campaigns WHERE id = ?').get(a.campaignId);
+    if (!campaign) return res.status(400).json({ error: 'CAMPAIGN_NOT_FOUND' });
+    if (campaign.status !== 'ACTIVE') return res.status(409).json({ error: 'CAMPAIGN_NOT_ACTIVE' });
+
+    const now = new Date().toISOString();
+    const actor = actorFromUser(req.user);
+    const id = nextApplicationId(db);
+    const timeline = [{ title: 'Application Submitted', date: now, actor: actor.label }];
+
+    db.prepare(
+      `INSERT INTO applications (id, beneficiary_name, phone, campaign_id, area, lat, lng, household_members,
+         disaster_type, requested_cents, approved_cents, priority, status, paypal_email, submitted_at,
+         ai_findings_json, timeline_json, documents_json, details_json, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'UNDER_REVIEW', ?, ?, '[]', ?, ?, ?, ?)`,
+    ).run(
+      id, req.user.name, a.phone || null, a.campaignId, a.area, campaign.lat, campaign.lng, a.householdMembers,
+      a.disasterType, a.requestedCents, a.priority, a.paypalEmail, now,
+      JSON.stringify(timeline), JSON.stringify(a.documents), JSON.stringify(a.details), now,
+    );
+
+    writeAudit(db, {
+      actor,
+      action: 'SUBMITTED_APPLICATION',
+      target: `Application ${id}`,
+      status: 'RECORDED',
+      details: { campaignId: a.campaignId, requestedAmount: toDollars(a.requestedCents) },
+    });
+
+    const row = db.prepare('SELECT * FROM applications WHERE id = ?').get(id);
+    return res.status(201).json({ application: mapApplication(row, currency) });
   });
 
   router.patch('/applications/:id/status', auth, requireRole('ADMIN', 'REVIEWER'), (req, res) => {

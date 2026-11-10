@@ -212,6 +212,32 @@ export default function ApplicationManagementPage() {
                 </div>
               </div>
 
+              {/* Applicant statement (applications submitted through the form) */}
+              {selectedApp.details && Object.values(selectedApp.details).some((v) => v) && (
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+                  <h2 className="text-lg font-semibold text-slate-900 mb-4">Applicant Statement</h2>
+                  <div className="grid grid-cols-2 gap-6 mb-4">
+                    {[
+                      ['Emergency Type', selectedApp.details.emergencyType],
+                      ['Assistance Needed', selectedApp.details.assistanceCategory],
+                      ['Damage Level', selectedApp.details.damageLevel],
+                      ['Estimated Damage', selectedApp.details.estimatedDamage != null ? formatMoney(selectedApp.details.estimatedDamage) : ''],
+                    ].filter(([, v]) => v).map(([label, v]) => (
+                      <div key={label}>
+                        <p className="text-sm text-slate-600">{label}</p>
+                        <p className="text-slate-900 font-medium">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedApp.details.damageDescription && (
+                    <p className="text-sm text-slate-700 mb-2"><strong>Damage:</strong> {selectedApp.details.damageDescription}</p>
+                  )}
+                  {selectedApp.details.justification && (
+                    <p className="text-sm text-slate-700"><strong>Why assistance is needed:</strong> {selectedApp.details.justification}</p>
+                  )}
+                </div>
+              )}
+
               {/* AI Findings */}
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
                 <h2 className="text-lg font-semibold text-slate-900 mb-4">AI Verification Findings</h2>
