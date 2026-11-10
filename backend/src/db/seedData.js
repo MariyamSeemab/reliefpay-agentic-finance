@@ -253,3 +253,27 @@ export const SEED_PAYOUT_BATCH = {
     { id: 'PI-SEED-002', applicationId: 'RPA-2026-0021', amountCents: 22000 },
   ],
 };
+
+// Field-check tasks assigned to the demo volunteer (Vikram Singh).
+export const SEED_VOLUNTEER_TASKS = [
+  {
+    id: 'TSK-101',
+    volunteerUserId: 'usr-5',
+    applicationId: 'RPA-2026-0012',
+    beneficiaryName: 'Ayesha Khan',
+    area: 'Mumbra Sector 4',
+    status: 'IN_PROGRESS',
+    dueDate: '2026-10-31',
+    notes: 'Verify household water level mark and Aadhaar physical copy.',
+  },
+  {
+    id: 'TSK-102',
+    volunteerUserId: 'usr-5',
+    applicationId: 'RPA-2026-0018',
+    beneficiaryName: 'Priya Nair',
+    area: 'Wayanad Zone 2',
+    status: 'ASSIGNED',
+    dueDate: '2026-11-02',
+    notes: 'Inspect storm drain damage impact.',
+  },
+];

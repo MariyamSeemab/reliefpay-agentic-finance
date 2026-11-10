@@ -26,7 +26,19 @@ The [public Postman workspace](https://www.postman.com/orbital-module-cosmonaut-
 | GET | `/api/campaigns` | none | All campaigns with raised, target and disbursed totals |
 | GET | `/api/campaigns/:id` | none | One campaign |
 | GET | `/api/applications` | ADMIN, REVIEWER, AUDITOR | Relief applications |
+| GET | `/api/applications/mine` | BENEFICIARY | The signed-in beneficiary's own applications |
+| POST | `/api/applications` | BENEFICIARY | Submit a new application (`campaignId`, `requestedAmount`, `paypalEmail`, ...) |
 | PATCH | `/api/applications/:id/status` | ADMIN, REVIEWER | Approve or reject, with an approved amount |
+| PUT | `/api/applications/:id/verification` | ADMIN, REVIEWER | Save AI-finding review state (`reviewed`, `flagged`, `decision`) |
+
+## Field work and beneficiary profiles
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/api/volunteer/tasks` | VOLUNTEER (own), ADMIN (all) | Field-check tasks |
+| PATCH | `/api/volunteer/tasks/:id` | VOLUNTEER (assigned) | Update `status`, `fieldNotes` or `evidence` file details. Completing needs at least one evidence file |
+| GET | `/api/beneficiary/profile` | BENEFICIARY | The saved registration profile |
+| PUT | `/api/beneficiary/profile` | BENEFICIARY | Create or update the registration profile |
 
 ## Donations (PayPal Orders v2)
 

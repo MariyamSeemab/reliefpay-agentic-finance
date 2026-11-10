@@ -8,6 +8,7 @@ import { auditRouter } from './routes/audit.js';
 import { authRouter } from './routes/auth.js';
 import { campaignsRouter } from './routes/campaigns.js';
 import { donationsRouter } from './routes/donations.js';
+import { fieldworkRouter } from './routes/fieldwork.js';
 import { metaRouter } from './routes/meta.js';
 import { payoutsRouter } from './routes/payouts.js';
 import { webhooksRouter } from './routes/webhooks.js';
@@ -33,6 +34,7 @@ export function createApp({ db, config, paypal = null, groq = null, bedrockStudi
   app.use('/api', payoutsRouter(deps));
   app.use('/api', webhooksRouter(deps));
   app.use('/api', aiRouter(deps));
+  app.use('/api', fieldworkRouter(deps));
 
   app.use('/api', (req, res) => {
     res.status(404).json({ error: 'NOT_FOUND' });

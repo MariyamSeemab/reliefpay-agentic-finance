@@ -149,6 +149,29 @@ CREATE TABLE IF NOT EXISTS refunds (
 );
 
 CREATE INDEX IF NOT EXISTS idx_refunds_donation ON refunds(donation_id);
+CREATE TABLE IF NOT EXISTS volunteer_tasks (
+  id TEXT PRIMARY KEY,
+  volunteer_user_id TEXT NOT NULL REFERENCES users(id),
+  application_id TEXT,
+  beneficiary_name TEXT,
+  area TEXT,
+  status TEXT NOT NULL CHECK (status IN ('ASSIGNED','IN_PROGRESS','COMPLETED')),
+  due_date TEXT,
+  notes TEXT,
+  field_notes TEXT NOT NULL DEFAULT '',
+  evidence_json TEXT NOT NULL DEFAULT '[]',
+  started_at TEXT,
+  completed_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_volunteer_tasks_user ON volunteer_tasks(volunteer_user_id);
+CREATE TABLE IF NOT EXISTS beneficiary_profiles (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  profile_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 // Adds a column to an existing table when an older DB file lacks it.

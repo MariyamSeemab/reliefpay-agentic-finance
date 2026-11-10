@@ -51,7 +51,7 @@ export default function App() {
           <Route
             path="/beneficiary/registration"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRoles={['BENEFICIARY']}>
                 <BeneficiaryRegistrationPage />
               </ProtectedRoute>
             }

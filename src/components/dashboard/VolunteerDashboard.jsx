@@ -2,42 +2,48 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   MapPin, Clock, CheckCircle, AlertCircle, MessageCircle, Phone, Camera, Upload, FileText, X, ChevronDown, ChevronUp,
 } from 'lucide-react';
-import { INITIAL_VOLUNTEER_TASKS } from '../../data/mockData';
+import { apiFetch } from '../../lib/api';
 
-// Field tasks are demo data (there is no volunteer API yet). Progress, notes and
-// evidence file names are saved in this browser's localStorage per volunteer, so
-// they survive a reload. Files themselves are not uploaded anywhere.
+// Field tasks come from the API. Status, field notes and evidence file names
+// are saved on the server. The files themselves are not uploaded.
 const COORDINATOR_EMAIL = 'dineshrajdhanapathy@gmail.com';
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = 'image/*,application/pdf';
+const SAVED_FIELDS = ['status', 'fieldNotes', 'evidence'];
 
-function storageKey(user) {
-  return `reliefpay.volunteerTasks.${user?.id || user?.email || 'demo'}`;
-}
+export function useVolunteerTasks() {
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
-function loadTasks(user) {
-  try {
-    const saved = JSON.parse(localStorage.getItem(storageKey(user)) || 'null');
-    if (Array.isArray(saved)) {
-      // Keep saved progress, and pick up any new demo tasks.
-      const byId = new Map(saved.map((t) => [t.id, t]));
-      return INITIAL_VOLUNTEER_TASKS.map((t) => ({ evidence: [], fieldNotes: '', ...t, ...byId.get(t.id) }));
-    }
-  } catch {
-    // Corrupt storage: fall back to the demo tasks.
-  }
-  return INITIAL_VOLUNTEER_TASKS.map((t) => ({ ...t, evidence: [], fieldNotes: '' }));
-}
-
-export function useVolunteerTasks(user) {
-  const [tasks, setTasks] = useState(() => loadTasks(user));
   useEffect(() => {
-    localStorage.setItem(storageKey(user), JSON.stringify(tasks));
-  }, [tasks, user]);
-  const updateTask = useCallback((id, patch) => {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...(typeof patch === 'function' ? patch(t) : patch) } : t)));
+    apiFetch('/volunteer/tasks')
+      .then((data) => setTasks(data?.tasks ?? []))
+      .catch((err) => setError(err.message || 'Could not load your tasks.'))
+      .finally(() => setLoading(false));
   }, []);
-  return [tasks, updateTask];
+
+  // Applies the change on screen right away, saves it, then keeps the server's
+  // copy. If the save fails, the task goes back to how it was.
+  const updateTask = useCallback(async (id, patch) => {
+    const current = tasksRef.current.find((t) => t.id === id);
+    if (!current) return;
+    const changes = typeof patch === 'function' ? patch(current) : patch;
+    const body = Object.fromEntries(Object.entries(changes).filter(([k]) => SAVED_FIELDS.includes(k)));
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...changes } : t)));
+    setError('');
+    try {
+      const { task } = await apiFetch(`/volunteer/tasks/${encodeURIComponent(id)}`, { method: 'PATCH', body });
+      setTasks((prev) => prev.map((t) => (t.id === id ? task : t)));
+    } catch (err) {
+      setTasks((prev) => prev.map((t) => (t.id === id ? current : t)));
+      setError(err.message || 'Could not save the change.');
+    }
+  }, []);
+
+  return [tasks, updateTask, { loading, error }];
 }
 
 function formatSize(bytes) {
@@ -336,7 +342,7 @@ function CompletedTaskRow({ task, updateTask }) {
 }
 
 export const VolunteerDashboard = ({ currentUser }) => {
-  const [tasks, updateTask] = useVolunteerTasks(currentUser);
+  const [tasks, updateTask, { loading, error }] = useVolunteerTasks();
 
   const inProgressCount = tasks.filter((t) => t.status === 'IN_PROGRESS').length;
   const completedCount = tasks.filter((t) => t.status === 'COMPLETED').length;
@@ -376,9 +382,15 @@ export const VolunteerDashboard = ({ currentUser }) => {
         </div>
       </div>
 
+      {error && (
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-700 rounded-xl p-4 text-sm">{error}</div>
+      )}
+
       <div className="space-y-4">
         <h2 className="text-lg font-bold text-slate-900">Active Tasks</h2>
-        {active.length === 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">Loading your tasks...</div>
+        ) : active.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-600">All your field tasks are complete.</div>
         ) : (
           <div className="space-y-4">
@@ -401,7 +413,7 @@ export const VolunteerDashboard = ({ currentUser }) => {
       )}
 
       <p className="text-xs text-slate-500">
-        Field tasks are demo data. Progress, notes and evidence file names are saved in this browser only; files are not uploaded to a server.
+        Task progress, field notes and evidence file names are saved to ReliefPay. The files themselves are not uploaded.
       </p>
     </div>
   );
@@ -409,9 +421,10 @@ export const VolunteerDashboard = ({ currentUser }) => {
 
 // Sidebar "Upload Evidence" section: pick a task, attach files to it.
 export const VolunteerEvidenceUpload = ({ currentUser }) => {
-  const [tasks, updateTask] = useVolunteerTasks(currentUser);
+  const [tasks, updateTask, { loading, error }] = useVolunteerTasks();
+  const [chosenId, setTaskId] = useState('');
   const open = tasks.filter((t) => t.status !== 'COMPLETED');
-  const [taskId, setTaskId] = useState(open[0]?.id || tasks[0]?.id || '');
+  const taskId = chosenId || open[0]?.id || tasks[0]?.id || '';
   const task = tasks.find((t) => t.id === taskId);
 
   return (
@@ -443,7 +456,9 @@ export const VolunteerEvidenceUpload = ({ currentUser }) => {
           </div>
         </>
       )}
-      <p className="text-xs text-slate-500">File names are saved in this browser only; files are not uploaded to a server.</p>
+      {loading && <p className="text-sm text-slate-500">Loading your tasks...</p>}
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      <p className="text-xs text-slate-500">File names are saved to ReliefPay; the files themselves are not uploaded.</p>
     </div>
   );
 };
