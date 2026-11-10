@@ -368,6 +368,37 @@
             "description": "All donations. ADMIN or AUDITOR."
           },
           "response": []
+        },
+        {
+          "name": "My donations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/donations/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "donations",
+                "mine"
+              ]
+            },
+            "description": "The signed-in user's own captured donations, newest first. A split donation is one row per campaign. Log in as the donor (mehta.r@techcorp.in) to see a non-empty list."
+          },
+          "response": []
         }
       ]
     },
@@ -610,6 +641,474 @@
               ]
             },
             "description": "Data behind /admin/analytics. ADMIN or AUDITOR."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Applications & AI verification",
+      "description": "Admin or reviewer. Runs with the admin token from Auth > Login.",
+      "item": [
+        {
+          "name": "List applications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications"
+              ]
+            },
+            "description": "All relief applications with AI findings, the applicant statement and the saved verification review."
+          },
+          "response": []
+        },
+        {
+          "name": "Save AI verification review",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/RPA-2026-0012/verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "RPA-2026-0012",
+                "verification"
+              ]
+            },
+            "description": "Marks AI findings as reviewed or flagged and records a decision (REVIEWED or ESCALATED, or null to clear). Does not approve or reject; audited as AI_VERIFICATION_*.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewed\": [\n    \"aif-1\",\n    \"aif-2\"\n  ],\n  \"flagged\": [],\n  \"decision\": \"REVIEWED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Beneficiary",
+      "description": "Logs in as the beneficiary demo account, then runs beneficiary-only requests. Run Auth > Login again afterwards to switch back to admin.",
+      "item": [
+        {
+          "name": "Login as beneficiary",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('login ok', () => pm.response.to.have.status(200));",
+                  "if (body.token) { pm.collectionVariables.set('token', body.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Sign in as the beneficiary demo account (same demo password as admin). Saves the JWT to token, so the requests after it run as the beneficiary.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{beneficiaryEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "My applications",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/mine",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "mine"
+              ]
+            },
+            "description": "The beneficiary's own applications with their current status and timeline."
+          },
+          "response": []
+        },
+        {
+          "name": "Submit application",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications"
+              ]
+            },
+            "description": "Creates a new application in the review queue (UNDER_REVIEW) for an active campaign. paypalEmail is where an approved payout is sent.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"campaignId\": \"cmp-01\",\n  \"area\": \"Mumbra Sector 4, Thane\",\n  \"disasterType\": \"Flash Flooding\",\n  \"householdMembers\": 5,\n  \"requestedAmount\": 150,\n  \"paypalEmail\": \"ayesha.k@gmail.com\",\n  \"emergencyType\": \"Flood relief\",\n  \"assistanceCategory\": \"Emergency shelter\",\n  \"damageLevel\": \"Severe\",\n  \"estimatedDamage\": 800,\n  \"damageDescription\": \"Ground floor flooded, kitchen and bedding lost.\",\n  \"justification\": \"We need temporary shelter and food for five people.\",\n  \"documents\": [\n    \"flood_photo.jpg\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get registration profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/beneficiary/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "beneficiary",
+                "profile"
+              ]
+            },
+            "description": "The saved registration profile, or null if the beneficiary has not registered yet."
+          },
+          "response": []
+        },
+        {
+          "name": "Save registration profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/beneficiary/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "beneficiary",
+                "profile"
+              ]
+            },
+            "description": "Creates or updates the registration profile. Audited as BENEFICIARY_REGISTERED or BENEFICIARY_PROFILE_UPDATED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobileNumber\": \"9876543210\",\n  \"residentialAddress\": \"Flat 3, Sector 4\",\n  \"city\": \"Thane\",\n  \"state\": \"Maharashtra\",\n  \"pinCode\": \"400612\",\n  \"familySize\": 5,\n  \"dependents\": 3,\n  \"occupation\": \"Tailor\",\n  \"monthlyIncome\": 200,\n  \"emergencyContactName\": \"Imran Khan\",\n  \"emergencyContactPhone\": \"9123456780\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Volunteer",
+      "description": "Logs in as the volunteer demo account, then runs field-task requests. Run Auth > Login again afterwards to switch back to admin.",
+      "item": [
+        {
+          "name": "Login as volunteer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.test('login ok', () => pm.response.to.have.status(200));",
+                  "if (body.token) { pm.collectionVariables.set('token', body.token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Sign in as the volunteer demo account (same demo password as admin). Saves the JWT to token, so the requests after it run as the volunteer.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{volunteerEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "My field tasks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/volunteer/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "volunteer",
+                "tasks"
+              ]
+            },
+            "description": "The volunteer's assigned field-check tasks."
+          },
+          "response": []
+        },
+        {
+          "name": "Start task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('started or already started', () => pm.expect([200, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/volunteer/tasks/TSK-102",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "volunteer",
+                "tasks",
+                "TSK-102"
+              ]
+            },
+            "description": "Moves an ASSIGNED task to IN_PROGRESS. Completing a task needs at least one evidence file, otherwise the API answers 409 EVIDENCE_REQUIRED.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"IN_PROGRESS\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Add notes and evidence",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 2xx', () => pm.expect(pm.response.code).to.be.within(200, 299));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/volunteer/tasks/TSK-101",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "volunteer",
+                "tasks",
+                "TSK-101"
+              ]
+            },
+            "description": "Saves field notes and evidence file details (name, size, type). The files themselves are not uploaded.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fieldNotes\": \"Water mark at 1.2 m, Aadhaar copy checked.\",\n  \"evidence\": [\n    {\n      \"name\": \"water_mark.jpg\",\n      \"size\": 204800,\n      \"type\": \"image/jpeg\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": []
         }
